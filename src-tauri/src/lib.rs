@@ -9,6 +9,7 @@
 mod git;
 mod server;
 mod store;
+mod updater;
 
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -54,6 +55,7 @@ fn web_root(app: &tauri::AppHandle) -> PathBuf {
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(|app| {
             let handle = app.handle().clone();
             let docs = app
@@ -101,6 +103,10 @@ pub fn run() {
                     std::thread::sleep(std::time::Duration::from_millis(800));
                     let _ = win.navigate(url);
                 });
+            }
+            // solo en la versión instalada (en desarrollo no hay paquetes firmados)
+            if !cfg!(debug_assertions) {
+                updater::check_in_background(handle.clone());
             }
             Ok(())
         })

@@ -24,6 +24,19 @@ Editor LaTeX local, gratuito y sin conexión. Compila en tu equipo con TeX Live 
   se repite TeX si el `.aux` cambia. Un documento de 133 páginas pasa de ~54 s a ~7 s.
   La compilación automática usa un modo rápido de una sola pasada.
 
+## Actualizaciones automáticas
+
+La app instalada consulta al arrancar `latest.json` en la última Release de GitHub. Si hay
+una versión nueva, pregunta y la instala. Los paquetes van firmados: la app solo acepta
+los firmados con la clave privada `%USERPROFILE%\.tauri\folio-updater.key` (no está en el
+repositorio; guarda una copia de seguridad, sin ella no se pueden publicar actualizaciones).
+
+Publicar una versión:
+
+```powershell
+.\scripts\release.ps1 -Version 0.1.5 -Notes "Qué cambió"
+```
+
 ## Licencia y créditos
 
 Folio se distribuye bajo **AGPL-3.0** (ver `LICENSE`), igual que los componentes que usa:
