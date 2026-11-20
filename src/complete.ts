@@ -1,11 +1,28 @@
 // Autocompletado de LaTeX: comandos, entornos, \ref, \cite, archivos y paquetes.
 
 import {
+  insertCompletionText,
   snippetCompletion as snip,
   type Completion,
   type CompletionContext,
   type CompletionResult,
 } from "@codemirror/autocomplete";
+import type { EditorView } from "@codemirror/view";
+
+/**
+ * El editor cierra las llaves solo (\begin{|}). La sugerencia debe sustituir también esa
+ * "}" sobrante, pero sin incluirla en el rango de la sugerencia: CodeMirror filtra las
+ * opciones con ese texto y, con "}", no coincidía ninguna (no aparecía la lista).
+ */
+const eatClosingBrace = (c: Completion): Completion => ({
+  ...c,
+  apply: (view: EditorView, completion: Completion, from: number, to: number) => {
+    const end = view.state.sliceDoc(to, to + 1) === "}" ? to + 1 : to;
+    const a = c.apply;
+    if (typeof a === "function") a(view, completion, from, end);
+    else view.dispatch(insertCompletionText(view.state, a ?? c.label, from, end));
+  },
+});
 
 export type ProjectIndex = {
   labels: () => string[];
@@ -143,8 +160,11 @@ const cmdOptions: Completion[] = [
   snip("\\begin{${env}}\n\t${}\n\\end{${env}}", { label: "\\begin", type: "keyword", detail: "Entorno" }),
 ];
 
+// los entornos más usados aparecen primero aunque no se haya escrito nada
+const ENV_BOOST: Record<string, number> = { equation: 9, align: 8, figure: 7, itemize: 6, enumerate: 5, table: 4, "equation*": 3, "align*": 3, tabular: 2, center: 1 };
+
 const envOptions: Completion[] = ENVS.map(([e, body]) =>
-  snip(`${e}}\n${body ?? "\t${}"}\n\\end{${e}}`, { label: e, type: "type" }),
+  eatClosingBrace(snip(`${e}}\n${body ?? "\t${}"}\n\\end{${e}}`, { label: e, type: "type", boost: ENV_BOOST[e] ?? 0 })),
 );
 
 const ARG_RE = /\\(\w+)\*?(?:\[[^\]]*\])?\{([^{}]*)$/;
@@ -172,13 +192,10 @@ export function latexCompletions(index: ProjectIndex) {
             if (m[1] === "begin") stack.push(m[2]);
             else stack.pop();
           }
-          const to = ctx.state.sliceDoc(ctx.pos, ctx.pos + 1) === "}" ? ctx.pos + 1 : ctx.pos;
-          options = [...new Set(stack.reverse())].map((e) => ({ label: e, apply: e + "}", type: "type" }));
-          return { from, to, options, validFor: /^[^,{}]*$/ };
+          options = [...new Set(stack.reverse())].map((e) => eatClosingBrace({ label: e, apply: e + "}", type: "type" }));
+          return { from, options, validFor: /^[^,{}]*$/ };
         } else {
-          // si el editor ya cerró la llave, el snippet la reemplaza
-          const to = ctx.state.sliceDoc(ctx.pos, ctx.pos + 1) === "}" ? ctx.pos + 1 : ctx.pos;
-          return { from, to, options: envOptions, validFor: /^[^,{}]*$/ };
+          return { from, options: envOptions, validFor: /^[^,{}]*$/ };
         }
       } else if (/^(ref|eqref|pageref|autoref|cref|Cref|nameref|vref)$/.test(cmd)) {
         options = index.labels().map((l) => ({ label: l, type: "variable" }));

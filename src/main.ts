@@ -2,8 +2,9 @@ import "@fontsource-variable/inter";
 import { EditorView, basicSetup } from "codemirror";
 import { Annotation, Compartment, EditorSelection, EditorState, type Extension } from "@codemirror/state";
 import { keymap } from "@codemirror/view";
-import { HighlightStyle, syntaxHighlighting } from "@codemirror/language";
-import { autocompletion, startCompletion } from "@codemirror/autocomplete";
+import { HighlightStyle, indentUnit, syntaxHighlighting } from "@codemirror/language";
+import { acceptCompletion, autocompletion, startCompletion } from "@codemirror/autocomplete";
+import { indentLess, indentMore } from "@codemirror/commands";
 import { forceLinting, lintGutter, setDiagnostics, type Diagnostic } from "@codemirror/lint";
 import { latex } from "./overleaf/latex-language";
 import { latexLinter } from "./overleaf/linter/latex-linter";
@@ -321,12 +322,26 @@ const wrapWith = (cmd: string) => (view: EditorView) => {
   return true;
 };
 
+/** Sin selección inserta la unidad de indentación en el cursor; con varias líneas, las indenta. */
+const tabIndent = (view: EditorView) => {
+  const { state } = view;
+  const multiLine = state.selection.ranges.some((r) => state.doc.lineAt(r.from).number !== state.doc.lineAt(r.to).number);
+  if (multiLine) return indentMore(view);
+  // misma unidad que usan la indentación automática y los snippets (no un \t suelto)
+  const unit = state.facet(indentUnit);
+  view.dispatch(state.replaceSelection(unit), { scrollIntoView: true, userEvent: "input.indent" });
+  return true;
+};
+
 let autoTimer: number | undefined;
 /** Marca los cambios que vienen del disco (no hay que volver a guardarlos). */
 const externalChange = Annotation.define<boolean>();
 
 const extensions: Extension[] = [
   keymap.of([
+    // Tab: acepta la sugerencia abierta; si no, indenta (antes sacaba el foco del editor)
+    { key: "Tab", run: (v) => acceptCompletion(v) || tabIndent(v) },
+    { key: "Shift-Tab", run: indentLess },
     { key: "Mod-b", run: wrapWith("textbf") },
     { key: "Mod-i", run: wrapWith("textit") },
     { key: "Mod-Alt-j", run: () => (syncForward(), true) },
