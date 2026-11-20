@@ -1,0 +1,9 @@
+node_modules
+dist
+public/core
+public/_test
+src-tauri/target
+src-tauri/gen
+*.log
+.DS_Store
+Thumbs.db

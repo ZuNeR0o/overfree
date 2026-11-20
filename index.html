@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Folio</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <div id="app">
+      <header class="bar">
+        <strong class="brand">Folio</strong>
+        <button id="project-btn" class="btn subtle" type="button" title="Proyectos">
+          <span class="ic" data-icon="folder"></span><span id="project-name">Proyecto</span><span class="ic" data-icon="chevron-down"></span>
+        </button>
+        <span class="sep"></span>
+        <div class="split">
+          <button id="compile" class="btn primary" type="button" title="Compilar (Ctrl+Enter o Ctrl+S)">
+            <span class="ic" data-icon="play"></span><span id="compile-label">Compilar</span>
+          </button>
+          <label class="btn primary toggle" title="Compilar automáticamente al escribir">
+            <input id="auto" type="checkbox" /> Auto
+          </label>
+        </div>
+        <select id="engine" aria-label="Motor de compilación" title="Motor de compilación">
+          <option value="pdflatex">pdfLaTeX</option>
+          <option value="xelatex">XeLaTeX</option>
+          <option value="lualatex">LuaLaTeX</option>
+        </select>
+        <span id="status" role="status"></span>
+        <span class="grow"></span>
+        <button id="history-btn" class="icon-btn" type="button" title="Historial de versiones" aria-label="Historial">
+          <span class="ic" data-icon="history"></span>
+        </button>
+        <button id="settings-btn" class="icon-btn" type="button" title="Ajustes" aria-label="Ajustes">
+          <span class="ic" data-icon="settings"></span>
+        </button>
+        <a id="download" class="btn ghost" hidden title="Descargar PDF">
+          <span class="ic" data-icon="download"></span>PDF
+        </a>
+      </header>
+
+      <div class="work" id="work">
+        <aside class="side" id="side">
+          <nav class="side-tabs" role="tablist">
+            <button type="button" data-tab="files" class="active">Archivos</button>
+            <button type="button" data-tab="outline">Esquema</button>
+            <button type="button" data-tab="search">Buscar</button>
+          </nav>
+
+          <section class="side-panel" data-panel="files">
+            <div class="files-head">
+              <span class="tools">
+                <button id="new-file" class="icon-btn" type="button" title="Nuevo archivo" aria-label="Nuevo archivo"><span class="ic" data-icon="file-plus"></span></button>
+                <button id="new-folder" class="icon-btn" type="button" title="Nueva carpeta" aria-label="Nueva carpeta"><span class="ic" data-icon="folder-plus"></span></button>
+                <button id="upload" class="icon-btn" type="button" title="Subir archivos" aria-label="Subir archivos"><span class="ic" data-icon="upload"></span></button>
+                <button id="export-zip" class="icon-btn" type="button" title="Descargar proyecto (.zip)" aria-label="Descargar ZIP"><span class="ic" data-icon="archive"></span></button>
+                <button id="reveal" class="icon-btn" type="button" title="Mostrar la carpeta en el Explorador" aria-label="Mostrar en el Explorador" hidden><span class="ic" data-icon="folder-open"></span></button>
+              </span>
+            </div>
+            <ul id="tree" class="tree"></ul>
+            <p class="hint">Arrastra archivos aquí para subirlos, o entre carpetas para moverlos.</p>
+            <input id="file-input" type="file" multiple hidden />
+          </section>
+
+          <section class="side-panel" data-panel="outline" hidden>
+            <ul id="outline" class="outline"></ul>
+          </section>
+
+          <section class="side-panel" data-panel="search" hidden>
+            <div class="search-box">
+              <input id="search-input" type="search" placeholder="Buscar en el proyecto…" />
+              <label class="check"><input id="search-case" type="checkbox" /> Aa</label>
+              <label class="check"><input id="search-regex" type="checkbox" /> .*</label>
+            </div>
+            <div id="search-results" class="search-results"></div>
+          </section>
+        </aside>
+
+        <div class="resizer" data-resize="side" aria-hidden="true"></div>
+
+        <main class="editor-pane" id="editor-pane">
+          <div class="pane-head">
+            <span id="crumb" class="crumb"></span>
+            <span class="grow"></span>
+            <button id="sync-fwd" class="btn subtle small" type="button" title="Mostrar en el PDF (Ctrl+Alt+J)">
+              Ir al PDF<span class="ic" data-icon="arrow-right"></span>
+            </button>
+          </div>
+          <div id="editor-toolbar" class="editor-toolbar" role="toolbar" aria-label="Formato"></div>
+          <div id="editor" class="editor"></div>
+          <div id="binary-view" class="binary-view" hidden></div>
+        </main>
+
+        <div class="resizer" data-resize="editor" aria-hidden="true"></div>
+
+        <section class="preview" id="preview">
+          <div class="pane-head">
+            <button id="zoom-out" class="icon-btn" type="button" title="Alejar" aria-label="Alejar"><span class="ic" data-icon="minus"></span></button>
+            <select id="zoom" aria-label="Zoom">
+              <option value="width">Ancho</option>
+              <option value="page">Página</option>
+              <option value="0.5">50 %</option>
+              <option value="0.75">75 %</option>
+              <option value="1">100 %</option>
+              <option value="1.25">125 %</option>
+              <option value="1.5">150 %</option>
+              <option value="2">200 %</option>
+              <option value="custom" hidden></option>
+            </select>
+            <button id="zoom-in" class="icon-btn" type="button" title="Acercar" aria-label="Acercar"><span class="ic" data-icon="plus"></span></button>
+            <span class="grow"></span>
+            <span id="page-info" class="muted"></span>
+          </div>
+          <div class="pdf-wrap">
+            <div id="pdf-root" class="pdf-root" hidden></div>
+            <div id="empty" class="empty">
+              <p class="empty-title">Tu documento aparecerá aquí</p>
+              <p>Pulsa Compilar o Ctrl+Enter. Doble clic en el PDF salta al código.</p>
+            </div>
+          </div>
+          <div id="problems" class="problems">
+            <div class="problems-head">
+              <button id="problems-toggle" type="button" class="problems-title">
+                <span class="ic" data-icon="chevron-up"></span><span id="problems-summary">Registro</span>
+              </button>
+              <span class="grow"></span>
+              <span class="seg" role="tablist">
+                <button type="button" data-log="list" class="active">Problemas</button>
+                <button type="button" data-log="raw">Registro completo</button>
+              </span>
+            </div>
+            <div class="problems-body" id="problems-body" hidden>
+              <ul id="problem-list" class="problem-list"></ul>
+              <pre id="log" hidden></pre>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <footer class="statusbar">
+        <span id="sb-save"></span>
+        <span id="sb-engine"></span>
+        <span class="grow"></span>
+        <span id="sb-words" title="Palabras del documento (sin comandos ni fórmulas)"></span>
+        <span id="sb-pos"></span>
+      </footer>
+    </div>
+
+    <!-- Proyectos -->
+    <dialog id="projects-dlg" class="dlg wide">
+      <form method="dialog" class="dlg-head">
+        <h2>Proyectos</h2>
+        <button class="icon-btn" value="close" aria-label="Cerrar"><span class="ic" data-icon="x"></span></button>
+      </form>
+      <div class="dlg-actions">
+        <select id="template" aria-label="Plantilla"></select>
+        <button id="create-project" class="btn primary" type="button"><span class="ic" data-icon="plus"></span>Nuevo proyecto</button>
+        <button id="import-zip" class="btn ghost-inline" type="button"><span class="ic" data-icon="archive"></span>Importar .zip</button>
+        <button id="import-files" class="btn ghost-inline" type="button"><span class="ic" data-icon="upload"></span>Importar archivos</button>
+        <button id="open-folder" class="btn ghost-inline" type="button" hidden><span class="ic" data-icon="folder"></span>Abrir carpeta</button>
+        <input id="zip-input" type="file" accept=".zip" hidden />
+        <input id="import-input" type="file" multiple hidden />
+      </div>
+      <ul id="project-list" class="project-list"></ul>
+    </dialog>
+
+    <!-- Historial -->
+    <dialog id="history-dlg" class="dlg wide">
+      <form method="dialog" class="dlg-head">
+        <h2>Historial de versiones</h2>
+        <button class="icon-btn" value="close" aria-label="Cerrar"><span class="ic" data-icon="x"></span></button>
+      </form>
+      <div class="dlg-actions">
+        <button id="snapshot-now" class="btn primary" type="button">Guardar versión ahora</button>
+        <span class="muted">Se guarda una versión automática cada vez que compilas con cambios.</span>
+      </div>
+      <div class="history">
+        <ul id="snap-list" class="snap-list"></ul>
+        <div id="snap-detail" class="snap-detail"><p class="muted">Elige una versión para ver los cambios.</p></div>
+      </div>
+    </dialog>
+
+    <!-- Ajustes -->
+    <dialog id="settings-dlg" class="dlg">
+      <form method="dialog" class="dlg-head">
+        <h2>Ajustes</h2>
+        <button class="icon-btn" value="close" aria-label="Cerrar"><span class="ic" data-icon="x"></span></button>
+      </form>
+      <div class="form">
+        <label>Tema
+          <select id="set-theme">
+            <option value="system">Según el sistema</option>
+            <option value="light">Claro</option>
+            <option value="dark">Oscuro</option>
+          </select>
+        </label>
+        <label>Tamaño de letra del editor
+          <select id="set-font">
+            <option>12</option><option>13</option><option>14</option><option>15</option><option>16</option><option>18</option><option>20</option>
+          </select>
+        </label>
+        <label>Archivo principal
+          <select id="set-main"></select>
+        </label>
+        <label class="row"><input id="set-spell" type="checkbox" /> Corrector ortográfico</label>
+        <label class="row"><input id="set-wrap" type="checkbox" /> Ajustar líneas largas</label>
+        <label class="row"><input id="set-pdfdark" type="checkbox" /> PDF con colores invertidos en modo oscuro</label>
+        <label class="row"><input id="set-lint" type="checkbox" /> Revisar errores mientras escribo</label>
+        <label class="row"><input id="set-math" type="checkbox" /> Vista previa de fórmulas</label>
+        <label class="row"><input id="set-toolbar" type="checkbox" /> Barra de herramientas del editor</label>
+        <label class="row"><input id="set-draft" type="checkbox" /> Compilación rápida al escribir (una pasada, sin bibliografía)</label>
+        <label>Retardo de autocompilación
+          <select id="set-delay">
+            <option value="1000">1 s</option><option value="2000">2 s</option><option value="3000">3 s</option><option value="5000">5 s</option>
+          </select>
+        </label>
+        <details class="shortcuts">
+          <summary>Atajos de teclado</summary>
+          <dl>
+            <dt>Ctrl+Enter / Ctrl+S</dt><dd>Compilar</dd>
+            <dt>Ctrl+Alt+J</dt><dd>Mostrar la línea actual en el PDF</dd>
+            <dt>Doble clic en el PDF</dt><dd>Ir al código</dd>
+            <dt>Ctrl+Shift+F</dt><dd>Buscar en el proyecto</dd>
+            <dt>Ctrl+F / Ctrl+H</dt><dd>Buscar y reemplazar en el archivo</dd>
+            <dt>Ctrl+Espacio</dt><dd>Autocompletar</dd>
+            <dt>Ctrl+B / Ctrl+I</dt><dd>Negrita / cursiva</dd>
+            <dt>Ctrl+/</dt><dd>Comentar líneas</dd>
+            <dt>Ctrl+rueda en el PDF</dt><dd>Zoom</dd>
+          </dl>
+        </details>
+      </div>
+    </dialog>
+
+    <!-- Pregunta de texto (prompt() no existe en Electron) -->
+    <dialog id="ask-dlg" class="dlg small">
+      <form method="dialog">
+        <p id="ask-label"></p>
+        <input id="ask-input" type="text" autocomplete="off" />
+        <div class="dlg-foot">
+          <button class="btn ghost-inline" value="cancel" type="submit" formnovalidate>Cancelar</button>
+          <button class="btn primary" value="ok" type="submit">Aceptar</button>
+        </div>
+      </form>
+    </dialog>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
