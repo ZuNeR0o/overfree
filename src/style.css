@@ -354,6 +354,17 @@ select, input[type="text"], input[type="search"] {
 .tb-grid button.on { background: var(--primary); border-color: var(--primary); }
 .tb-grid-label { grid-column: 1 / -1; text-align: center; font-size: 12px; color: var(--muted-foreground); padding-top: 4px; }
 
+/* ---------- Paleta de símbolos ---------- */
+.symbol-palette { flex: none; display: flex; flex-direction: column; gap: 6px; padding: 8px; border-bottom: 1px solid var(--border); background: var(--muted); max-height: 260px; }
+.sym-search { width: 100%; }
+.sym-tabs { display: flex; flex-wrap: wrap; gap: 2px; }
+.sym-tabs button { background: none; border: 1px solid transparent; border-radius: var(--radius); padding: 2px 8px; font-size: 12px; color: var(--muted-foreground); }
+.sym-tabs button.active, .sym-tabs button:hover { background: var(--accent); color: var(--foreground); }
+.sym-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(40px, 1fr)); gap: 3px; overflow: auto; min-height: 0; }
+.sym { height: 36px; display: flex; align-items: center; justify-content: center; background: var(--background); border: 1px solid var(--border); border-radius: var(--radius); font-size: 15px; overflow: hidden; }
+.sym:hover { border-color: var(--primary); background: var(--accent); }
+.sym .katex { font-size: 1em; }
+
 /* ---------- Editor ---------- */
 .editor-pane { display: flex; flex-direction: column; min-width: 0; min-height: 0; background: var(--background); }
 .editor { flex: 1; min-height: 0; overflow: hidden; }
@@ -378,6 +389,46 @@ html.pdf-dark[data-theme="dark"] .pdf-page canvas { filter: invert(0.9) hue-rota
 @media (prefers-color-scheme: dark) {
   html.pdf-dark:not([data-theme="light"]) .pdf-page canvas { filter: invert(0.9) hue-rotate(180deg); }
 }
+/* Capa de texto de pdf.js (reglas mínimas de pdf_viewer.css): seleccionar y copiar */
+.textLayer {
+  position: absolute;
+  inset: 0;
+  overflow: clip;
+  line-height: 1;
+  text-align: initial;
+  transform-origin: 0 0;
+  z-index: 1;
+  --min-font-size: 1;
+  --text-scale-factor: calc(var(--total-scale-factor) * var(--min-font-size));
+  --min-font-size-inv: calc(1 / var(--min-font-size));
+}
+.textLayer :is(span, br) {
+  color: transparent;
+  position: absolute;
+  white-space: pre;
+  cursor: text;
+  transform-origin: 0% 0%;
+}
+.textLayer > :not(.markedContent), .textLayer .markedContent span:not(.markedContent) {
+  --font-height: 0;
+  font-size: calc(var(--text-scale-factor) * var(--font-height));
+  --scale-x: 1;
+  --rotate: 0deg;
+  transform: rotate(var(--rotate)) scaleX(var(--scale-x)) scale(var(--min-font-size-inv));
+}
+.textLayer .markedContent { display: contents; }
+.textLayer ::selection { background: color-mix(in srgb, #3b82f6 35%, transparent); color: transparent; }
+.textLayer .find-hit { background: color-mix(in srgb, #e9c46a 55%, transparent); border-radius: 2px; }
+.textLayer .find-current { background: color-mix(in srgb, #f97316 60%, transparent); outline: 1px solid #ea580c; }
+.linkLayer { position: absolute; inset: 0; z-index: 2; pointer-events: none; }
+.pdf-link { position: absolute; pointer-events: auto; border-radius: 2px; cursor: pointer; }
+.pdf-link:hover { background: color-mix(in srgb, #3b82f6 18%, transparent); outline: 1px solid color-mix(in srgb, #3b82f6 50%, transparent); }
+
+.pdf-find { display: flex; align-items: center; gap: 4px; padding: 4px 8px; border-bottom: 1px solid var(--border); background: var(--background); }
+.pdf-find input { flex: 1; min-width: 0; padding: 3px 8px; }
+.pdf-find .muted { font-size: 12px; min-width: 60px; text-align: right; }
+
+.sync-mark { z-index: 3; }
 .sync-mark {
   position: absolute;
   background: color-mix(in srgb, #e9c46a 45%, transparent);

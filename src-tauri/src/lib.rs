@@ -7,6 +7,7 @@
 //! los proyectos como carpetas reales en Documentos\Folio.
 
 mod git;
+mod native;
 mod server;
 mod store;
 mod updater;

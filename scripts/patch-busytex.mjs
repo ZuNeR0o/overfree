@@ -6,8 +6,9 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 const file = "public/core/busytex/busytex_pipeline.js";
 if (!existsSync(file)) process.exit(0);
 
-let src = readFileSync(file, "utf8");
-const before = src;
+// los parches buscan texto con saltos LF: se normaliza por si el archivo trae CRLF
+let src = readFileSync(file, "utf8").replace(/\r\n/g, "\n");
+const before = readFileSync(file, "utf8");
 
 // 1. No detenerse en el primer error.
 src = src.replaceAll("'--halt-on-error', ", "");
@@ -62,6 +63,47 @@ if (!src.includes("folio:skip-passes")) {
     _needs_rerun(log_text) {`,
   );
 }
+// 4. Glosarios y acrónimos (paquetes glossaries / glossaries-extra / nomencl): hace lo
+//    mismo que makeglossaries, con el makeindex que ya trae BusyTeX y el .ist que escribe
+//    \makeglossaries. Solo fuerza otra pasada si el glosario generado cambió.
+const GLOSS_ANCHOR = "            this.print('$ # makeindex disabled by caller');\n        }\n";
+if (!src.includes("folio:glossaries") && src.includes(GLOSS_ANCHOR)) {
+  src = src.replace(
+    GLOSS_ANCHOR,
+    GLOSS_ANCHOR +
+      `
+        /* folio:glossaries */
+        let glossaries_active = false;
+        if (exit_code == 0 && rerun !== false) {
+            const base = tex_path.replace(/\\.tex$/, '');
+            const ist = base + '.ist';
+            const decode = c => c == null ? '' : (typeof c === 'string' ? c : new TextDecoder().decode(c));
+            for (const [i, o, l] of [['.glo', '.gls', '.glg'], ['.acn', '.acr', '.alg'], ['.slo', '.sls', '.slg'], ['.nlo', '.nls', '.nlg']]) {
+                const inp = base + i;
+                if (!FS.analyzePath(inp).exists || this.read_all_text(FS, inp).trim() == '') continue;
+                const style = i == '.nlo' ? 'nomencl.ist' : (FS.analyzePath(ist).exists ? ist : null);
+                if (!style) continue;
+                const before = FS.analyzePath(base + o).exists ? this.read_all_text(FS, base + o) : decode((files.find(f => f.path.endsWith(base.split('/').pop() + o)) || {}).contents);
+                run(['makeindex', '-s', style, '-t', base + l, '-o', base + o, inp], this.error_messages_fatal);
+                const after = FS.analyzePath(base + o).exists ? this.read_all_text(FS, base + o) : '';
+                if (after.trim() !== before.trim()) glossaries_active = true;
+            }
+        }
+`,
+  );
+}
+// actualiza la primera versión del bloque (no respetaba el modo rápido)
+src = src.replace(
+  "let glossaries_active = false;\n        if (exit_code == 0) {",
+  "let glossaries_active = false;\n        if (exit_code == 0 && rerun !== false) {",
+);
+// solo si el bloque de glosarios existe (si no, glossaries_active no estaría declarada)
+if (src.includes("folio:glossaries")) {
+  src = src.replace("(bibtex || makeindex_active || (this._needs_rerun", "(bibtex || makeindex_active || glossaries_active || (this._needs_rerun");
+} else {
+  console.warn("BusyTeX: no se pudo aplicar el parche de glosarios (cambió el pipeline).");
+}
+
 // 'rerunfilecheck' aparece en el registro de cualquier documento con hyperref (solo por
 // cargar el paquete) y forzaba pasadas extra siempre. Su aviso real dice "Rerun to get…",
 // que ya está en la lista.

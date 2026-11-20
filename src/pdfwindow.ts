@@ -10,6 +10,7 @@ export type PdfMessage =
   | { type: "pdf"; pdf: Uint8Array; name: string }
   | { type: "reveal"; page: number; top: number; bottom: number; left: number; right: number }
   | { type: "inverse"; page: number; x: number; y: number }
+  | { type: "link"; url: string }
   | { type: "theme"; theme: string | null; pdfDark: boolean };
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -25,6 +26,8 @@ viewer.onChange = () => {
   $("page-info").textContent = viewer.pageCount ? `Página ${viewer.currentPage} de ${viewer.pageCount}` : "";
 };
 viewer.onDblClick = (page, x, y) => channel.postMessage({ type: "inverse", page, x, y } satisfies PdfMessage);
+// la ventana principal abre la URL (esta ventana no tiene acceso a la API)
+viewer.onExternalLink = (url) => channel.postMessage({ type: "link", url } satisfies PdfMessage);
 $<HTMLSelectElement>("zoom").onchange = (e) => {
   const v = (e.target as HTMLSelectElement).value;
   setZoom(v === "width" || v === "page" ? v : +v);

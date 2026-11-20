@@ -11,15 +11,17 @@ import { latexLinter } from "./overleaf/linter/latex-linter";
 import { mathPreview } from "./overleaf/math-preview";
 import { mountToolbar } from "./overleaf/toolbar";
 import { noSpellcheckLatex } from "./overleaf/no-spellcheck";
+import { alignColumns, structureEditing, structureKeymap } from "./structure";
+import { mountSymbolPalette } from "./symbols";
 import { createGitPanel } from "./gitpanel";
 import type { PdfMessage } from "./pdfwindow";
 import { tags as t } from "@lezer/highlight";
 
-import { compileProject, engineReady, exportAux, importAux, onEngineProgress, warmUp, type Engine } from "./latex";
+import { clearAuxCache, compileProject, engineReady, exportAux, importAux, onEngineProgress, warmUp, type Engine } from "./latex";
 import { backend, desktop, isTextPath, migrateLegacy, newId, type ProjectMeta, type Snapshot, type StoredFile } from "./store";
 import { parseLog, type Problem } from "./logparse";
 import { parseSynctex, forward, inverse, type SyncData } from "./synctex";
-import { PdfViewer, type Zoom } from "./pdfview";
+import { PdfViewer, type FindHit, type Zoom } from "./pdfview";
 import { latexCompletions, extractBibEntries, extractLabels } from "./complete";
 import { TEMPLATES, fromZip, guessMain, orderedTexFiles, outline, toZip, wordCount } from "./project";
 import { bibKey, fetchBibtex, findByDoi, parseDoi, renameKey } from "./doi";
@@ -146,6 +148,9 @@ type Settings = {
   toolbar: boolean;
   draft: boolean;
   spellLang: string;
+  compiler: "builtin" | "system";
+  /** Proyectos (id) a los que el usuario permitió -shell-escape. */
+  shellEscapeProjects: string[];
 };
 
 const SET_KEY = "folio:settings";
@@ -165,6 +170,8 @@ const settings: Settings = {
   toolbar: true,
   draft: true,
   spellLang: "es-MX",
+  compiler: "builtin",
+  shellEscapeProjects: [],
 };
 try {
   Object.assign(settings, JSON.parse(localStorage.getItem(SET_KEY) ?? "{}"));
@@ -342,6 +349,7 @@ const extensions: Extension[] = [
     // Tab: acepta la sugerencia abierta; si no, indenta (antes sacaba el foco del editor)
     { key: "Tab", run: (v) => acceptCompletion(v) || tabIndent(v) },
     { key: "Shift-Tab", run: indentLess },
+    ...structureKeymap, // Enter en listas (\item) y Ctrl+Alt+A para alinear &
     { key: "Mod-b", run: wrapWith("textbf") },
     { key: "Mod-i", run: wrapWith("textit") },
     { key: "Mod-Alt-j", run: () => (syncForward(), true) },
@@ -357,6 +365,7 @@ const extensions: Extension[] = [
     (v) => (current ? diagnosticsFor(current, v.state) : []),
   ),
   mathComp.of(mathExt()),
+  structureEditing, // \begin{x} y \end{x} cambian a la vez
   baseTheme,
   fontComp.of(fontExt()),
   spellComp.of(spellExt()),
@@ -376,7 +385,8 @@ const extensions: Extension[] = [
     }
     if (u.docChanged && current && !u.transactions.some((tr) => tr.annotation(externalChange))) {
       const f = findFile(current);
-      if (f) {
+      // nunca escribir texto sobre un archivo binario (imagen, PDF…)
+      if (f && f.text !== undefined) {
         f.text = u.state.doc.toString();
         persist(f);
         scheduleIndex();
@@ -393,7 +403,17 @@ const extensions: Extension[] = [
 const makeState = (doc: string) => EditorState.create({ doc, extensions });
 let toolbar: ReturnType<typeof mountToolbar> | null = null;
 const view = new EditorView({ parent: $("editor"), state: makeState("") });
+const symbolPalette = mountSymbolPalette($("symbol-palette"), () => view);
 toolbar = mountToolbar($("editor-toolbar"), () => view, icon, [
+  { icon: "omega", title: "Paleta de símbolos", run: () => symbolPalette.toggle() },
+  {
+    icon: "align-cols",
+    title: "Alinear columnas & de la tabla, align o matriz (Ctrl+Alt+A)",
+    run: () => {
+      if (!alignColumns(view)) setStatus("Pon el cursor dentro de una tabla, align o matriz para alinear sus columnas.");
+      view.focus();
+    },
+  },
   { icon: "book", title: "Añadir referencia por DOI", run: () => void addReferenceByDoi() },
   { icon: "external", title: "Abrir el PDF en otra ventana", run: () => void openPdfWindow() },
 ]);
@@ -441,11 +461,15 @@ function openFile(path: string, line?: number) {
   const bin = $("binary-view");
   if (f.text === undefined) {
     $("editor").hidden = true;
+    // sin editor de texto no hay barra ni paleta (insertarían en el archivo anterior)
+    $("editor-toolbar").hidden = true;
+    $("symbol-palette").hidden = true;
     bin.hidden = false;
     showBinary(f);
     $<HTMLButtonElement>("sync-fwd").disabled = true;
   } else {
     $("editor").hidden = false;
+    $("editor-toolbar").hidden = !settings.toolbar;
     bin.hidden = true;
     bin.replaceChildren();
     $<HTMLButtonElement>("sync-fwd").disabled = false;
@@ -900,6 +924,66 @@ viewer.onDblClick = (page, x, y) => {
   if (hit && findFile(hit.file)) openFile(hit.file, hit.line);
 };
 
+viewer.onExternalLink = (url) => {
+  if (!/^(https?:|mailto:)/i.test(url)) return setStatus(`Enlace no admitido: ${url}`, "error");
+  if (desktop) void desktop.openUrl(url);
+  else window.open(url, "_blank", "noopener");
+};
+
+// ---------- Buscar en el PDF ----------
+
+let findHits: FindHit[] = [];
+let findIndex = 0;
+let findTimer: number | undefined;
+const findInput = $<HTMLInputElement>("pdf-find-input");
+
+function openPdfFind() {
+  $("pdf-find").hidden = false;
+  findInput.focus();
+  findInput.select();
+}
+function closePdfFind() {
+  $("pdf-find").hidden = true;
+  viewer.clearFind();
+  findHits = [];
+}
+async function runPdfFind() {
+  const q = findInput.value;
+  findHits = q.trim() ? await viewer.find(q) : [];
+  findIndex = 0;
+  $("pdf-find-count").textContent = q.trim() ? (findHits.length ? `1 de ${findHits.length}` : "Sin resultados") : "";
+  if (findHits.length) void viewer.showHit(findHits[0], findHits);
+  else viewer.clearFind();
+}
+function stepPdfFind(dir: 1 | -1) {
+  if (!findHits.length) return void runPdfFind();
+  findIndex = (findIndex + dir + findHits.length) % findHits.length;
+  $("pdf-find-count").textContent = `${findIndex + 1} de ${findHits.length}`;
+  void viewer.showHit(findHits[findIndex], findHits);
+}
+findInput.addEventListener("input", () => {
+  window.clearTimeout(findTimer);
+  findTimer = window.setTimeout(() => void runPdfFind(), 250);
+});
+findInput.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") {
+    e.preventDefault();
+    stepPdfFind(e.shiftKey ? -1 : 1);
+  } else if (e.key === "Escape") closePdfFind();
+});
+$("pdf-find-btn").onclick = () => ($("pdf-find").hidden ? openPdfFind() : closePdfFind());
+$("pdf-find-next").onclick = () => stepPdfFind(1);
+$("pdf-find-prev").onclick = () => stepPdfFind(-1);
+$("pdf-find-close").onclick = closePdfFind;
+// Ctrl+F con el ratón o el foco sobre el PDF busca en el PDF (en el editor, busca en el código)
+$("preview").addEventListener("keydown", (e) => {
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "f") {
+    e.preventDefault();
+    openPdfFind();
+  }
+});
+$("pdf-root").tabIndex = -1; // permite enfocar el PDF al hacer clic
+
 function setZoom(z: Zoom) {
   settings.zoom = z;
   saveSettings();
@@ -1000,8 +1084,17 @@ let busy = false;
 let again = false;
 
 onEngineProgress((pct) => {
-  $("sb-engine").textContent = pct < 100 ? `Cargando motor ${Math.round(pct)} %` : "";
+  if (pct < 100) $("sb-engine").textContent = `Cargando motor ${Math.round(pct)} %`;
+  else updateCompilerBadge();
 });
+
+/** Borra los auxiliares guardados (.aux, .toc, glosarios…) y compila desde cero. */
+$("clear-cache").onclick = async () => {
+  clearAuxCache();
+  if (desktop) await desktop.cleanNative(meta.id).catch(() => undefined);
+  setStatus("Archivos auxiliares borrados. Compilando desde cero…");
+  void compile();
+};
 
 async function compile(auto = false) {
   if (busy) {
@@ -1016,11 +1109,22 @@ async function compile(auto = false) {
   const t0 = performance.now();
   try {
     if (current && findFile(current)?.text !== undefined) states.set(current, view.state);
-    const r = await compileProject(
-      files.map((f) => ({ path: f.path, content: f.text ?? f.data ?? new Uint8Array() })),
-      // la compilación automática usa el modo rápido (una pasada) si está activado
-      { main: meta.main, engine: meta.engine, cacheKey: meta.id, draft: auto && settings.draft },
-    );
+    const draft = auto && settings.draft;
+    const useSystem = !!desktop && settings.compiler === "system";
+    if (useSystem) await flushPending(); // el TeX del sistema lee los archivos del disco
+    const r = useSystem
+      ? await desktop!.compileNative(meta.id, {
+          main: meta.main,
+          engine: meta.engine,
+          // solo si lo permitiste para ESTE proyecto, y nunca en compilaciones automáticas
+          shellEscape: !auto && settings.shellEscapeProjects.includes(meta.id),
+          draft,
+        })
+      : await compileProject(
+          files.map((f) => ({ path: f.path, content: f.text ?? f.data ?? new Uint8Array() })),
+          // la compilación automática usa el modo rápido (una pasada) si está activado
+          { main: meta.main, engine: meta.engine, cacheKey: meta.id, draft },
+        );
     $("log").textContent = r.log;
     const known = files.map((f) => f.path);
     problems = parseLog(r.log, known, meta.main);
@@ -1457,6 +1561,9 @@ function openSettings() {
   $<HTMLInputElement>("set-toolbar").checked = settings.toolbar;
   $<HTMLInputElement>("set-draft").checked = settings.draft;
   $<HTMLSelectElement>("set-spell-lang").value = settings.spellLang;
+  $<HTMLSelectElement>("set-compiler").value = settings.compiler;
+  $<HTMLInputElement>("set-shell").checked = settings.shellEscapeProjects.includes(meta.id);
+  void refreshCompilerInfo();
   refreshMainSelect();
   $<HTMLDialogElement>("settings-dlg").showModal();
 }
@@ -1506,6 +1613,40 @@ $("set-toolbar").onchange = (e) => {
   $("editor-toolbar").hidden = !settings.toolbar;
   saveSettings();
 };
+async function refreshCompilerInfo() {
+  const sel = $<HTMLSelectElement>("set-compiler");
+  const info = $("compiler-info");
+  if (!desktop) {
+    sel.disabled = true;
+    info.textContent = "El TeX del sistema solo está disponible en la app de escritorio.";
+    return;
+  }
+  const n = await desktop.nativeInfo().catch(() => ({ available: false }) as { available: boolean; version?: string });
+  sel.querySelector<HTMLOptionElement>('option[value="system"]')!.disabled = !n.available;
+  info.textContent = n.available
+    ? `Detectado: ${n.version}. Úsalo si un paquete no funciona en el integrado o necesitas -shell-escape (minted, svg).`
+    : "No se encontró MiKTeX ni TeX Live en este equipo.";
+  if (!n.available && settings.compiler === "system") {
+    settings.compiler = "builtin";
+    sel.value = "builtin";
+    saveSettings();
+  }
+}
+$("set-compiler").onchange = (e) => {
+  settings.compiler = (e.target as HTMLSelectElement).value as Settings["compiler"];
+  saveSettings();
+  updateCompilerBadge();
+};
+$("set-shell").onchange = (e) => {
+  const on = (e.target as HTMLInputElement).checked;
+  settings.shellEscapeProjects = settings.shellEscapeProjects.filter((id) => id !== meta.id);
+  if (on) settings.shellEscapeProjects.push(meta.id);
+  saveSettings();
+};
+function updateCompilerBadge() {
+  $("sb-engine").textContent = desktop && settings.compiler === "system" ? "TeX del sistema" : "";
+}
+updateCompilerBadge();
 $("set-spell-lang").onchange = (e) => {
   settings.spellLang = (e.target as HTMLSelectElement).value;
   saveSettings();
@@ -1577,6 +1718,8 @@ pdfChannel.onmessage = (ev: MessageEvent<PdfMessage>) => {
   if (m.type === "hello") {
     postTheme();
     postPdf();
+  } else if (m.type === "link") {
+    viewer.onExternalLink?.(m.url);
   } else if (m.type === "inverse") {
     if (!sync) return setStatus("Compila de nuevo para activar la sincronización.");
     const hit = inverse(sync, m.page, m.x, m.y);

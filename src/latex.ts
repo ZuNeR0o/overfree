@@ -74,7 +74,7 @@ function detectTools(files: ProjectFile[]) {
 
 // Archivos auxiliares de la compilación anterior (referencias, índice, bibliografía...).
 // Reutilizarlos, como hace Overleaf, permite que una sola pasada de TeX baste casi siempre.
-const AUX_RE = /\.(aux|toc|lof|lot|out|bbl|nav|snm|vrb|ind|idx|gls|glo|glg|acn|acr|alg|ist|loa|thm|brf|xref)$/i;
+const AUX_RE = /\.(aux|toc|lof|lot|out|bbl|nav|snm|vrb|ind|idx|gls|glo|glg|acn|acr|alg|ist|slo|sls|slg|nlo|nls|nlg|glsdefs|loa|thm|brf|xref)$/i;
 const auxCache = new Map<string, ProjectFile[]>();
 
 /** Olvida los auxiliares guardados (p. ej. si una compilación falla de forma rara). */

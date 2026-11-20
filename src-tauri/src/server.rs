@@ -245,6 +245,20 @@ fn api(ctx: &Ctx, mut req: Request, path: &str, url: &str) {
             }
         }
 
+        (Method::Get, ["native"]) => json_resp(req, 200, &crate::native::detect()),
+
+        (Method::Post, ["open-url"]) => {
+            // solo enlaces web o de correo; nunca rutas ni otros protocolos
+            let u = query(url, "url").unwrap_or_default();
+            let low = u.to_lowercase();
+            let ok_scheme = low.starts_with("https://") || low.starts_with("http://") || low.starts_with("mailto:");
+            if !ok_scheme || u.chars().any(|c| c.is_control() || c == '"') {
+                return fail(req, 400, "enlace no admitido");
+            }
+            let _ = std::process::Command::new("explorer").arg(&u).spawn();
+            ok(req)
+        }
+
         (Method::Post, ["open-window"]) => {
             // solo páginas propias conocidas
             let page = query(url, "page").unwrap_or_default();
@@ -330,6 +344,25 @@ fn api(ctx: &Ctx, mut req: Request, path: &str, url: &str) {
             (Method::Put, ["output", which]) => {
                 let b = body(&mut req);
                 done!(st.save_output(id, which, &b))
+            }
+            (Method::Post, ["native", action]) => {
+                let dir = match st.project_dir(id) {
+                    Ok(d) => d,
+                    Err(err) => return fail(req, 404, &err),
+                };
+                let b = body(&mut req);
+                let v: Value = serde_json::from_slice(&b).unwrap_or(Value::Null);
+                match *action {
+                    "compile" => reply!(crate::native::compile(
+                        &dir,
+                        v["main"].as_str().unwrap_or("main.tex"),
+                        v["engine"].as_str().unwrap_or("pdflatex"),
+                        v["shellEscape"].as_bool().unwrap_or(false),
+                        v["draft"].as_bool().unwrap_or(false),
+                    )),
+                    "clean" => done!(crate::native::clean(&dir)),
+                    _ => fail(req, 404, "acción desconocida"),
+                }
             }
             (m, ["git", action]) => {
                 let dir = match st.project_dir(id) {

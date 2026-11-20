@@ -270,6 +270,26 @@ class DesktopBackend implements Backend {
     const method = action === "status" || action === "log" ? "GET" : "POST";
     return this.json<T>(method, `${this.p(id)}/git/${action}`, body ? JSON.stringify(body) : undefined);
   }
+  /** Abre una URL en el navegador predeterminado del sistema. */
+  async openUrl(url: string) {
+    await this.call("POST", "/open-url", undefined, { url });
+  }
+  /** TeX instalado en el equipo (MiKTeX / TeX Live), si lo hay. */
+  nativeInfo() {
+    return this.json<{ available: boolean; version?: string; path?: string; miktex?: boolean }>("GET", "/native");
+  }
+  async compileNative(id: string, opts: { main: string; engine: string; shellEscape: boolean; draft: boolean }) {
+    const r = await this.json<{ success: boolean; pdf: string | null; synctex: string | null; log: string }>(
+      "POST",
+      `${this.p(id)}/native/compile`,
+      JSON.stringify(opts),
+    );
+    const dec = (b: string | null) => (b ? Uint8Array.from(atob(b), (c) => c.charCodeAt(0)) : null);
+    return { success: r.success, pdf: dec(r.pdf), synctex: dec(r.synctex), log: r.log };
+  }
+  async cleanNative(id: string) {
+    await this.call("POST", `${this.p(id)}/native/clean`);
+  }
   /** Abre una ventana nativa adicional (p. ej. el PDF en otro monitor). */
   async openWindow(page: string) {
     await this.call("POST", "/open-window", undefined, { page });
