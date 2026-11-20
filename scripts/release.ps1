@@ -12,8 +12,11 @@ param(
   [string]$Notes = "Mejoras y correcciones.",
   [string]$Repo = "overfree"
 )
-$ErrorActionPreference = "Stop"
+# "Continue": en PowerShell 5.1 cualquier línea en stderr de un programa (npm, tauri,
+# git) cuenta como error; se decide por $LASTEXITCODE de cada paso.
+$ErrorActionPreference = "Continue"
 Set-Location (Split-Path $PSScriptRoot -Parent)
+function Assert-Ok($what) { if ($LASTEXITCODE -ne 0) { throw "Falló: $what (código $LASTEXITCODE)" } }
 
 $gh = (Get-Command gh -ErrorAction SilentlyContinue).Source
 if (-not $gh) { $gh = "C:\Program Files\GitHub CLI\gh.exe" }
@@ -61,9 +64,9 @@ Set-Content $latest "" ; Set-Utf8NoBom $latest ($manifest | ConvertTo-Json -Dept
 
 # 4. commit, etiqueta y publicación
 & $git add -A
-& $git commit -m "Folio $Version`n`n$Notes" 2>$null
-& $git tag "v$Version"
-& $git push origin main --tags
+& $git commit -q -m "Folio $Version`n`n$Notes"
+& $git tag "v$Version"; Assert-Ok "git tag"
+& $git push -q origin main --tags; Assert-Ok "git push"
 & $gh release create "v$Version" $exe.FullName $latest --repo "$owner/$Repo" --title "Folio $Version" --notes $Notes
-if ($LASTEXITCODE -ne 0) { throw "Falló la publicación en GitHub" }
+Assert-Ok "publicación en GitHub"
 Write-Host "`nPublicado: https://github.com/$owner/$Repo/releases/tag/v$Version"

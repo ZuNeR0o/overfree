@@ -1,6 +1,6 @@
 [package]
 name = "folio"
-version = "0.1.3"
+version = "0.1.4"
 description = "Editor LaTeX local y sin conexión"
 edition = "2021"
 
