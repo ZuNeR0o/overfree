@@ -139,6 +139,8 @@ button:disabled { cursor: default; }
 .btn.subtle { color: var(--foreground); }
 .btn.subtle:hover { background: var(--accent); }
 .btn.subtle:disabled { opacity: 0.4; background: none; }
+.btn.ghost-inline:disabled, .btn.primary.small:disabled { opacity: 0.45; cursor: default; background: none; color: var(--muted-foreground); }
+.btn.primary.small:disabled { background: var(--muted); }
 #project-name { max-width: 220px; overflow: hidden; text-overflow: ellipsis; }
 
 .split { display: inline-flex; }
@@ -271,6 +273,24 @@ select, input[type="text"], input[type="search"] {
 .hit .ln { color: var(--muted-foreground); margin-right: 8px; }
 .hit mark { background: color-mix(in srgb, #e9c46a 55%, transparent); color: inherit; border-radius: 2px; }
 
+.git-panel { padding: 8px 10px 14px; display: flex; flex-direction: column; gap: 8px; font-size: 13px; }
+.git-panel .pad { padding: 4px 2px; }
+.git-panel .pad p { margin: 0 0 10px; }
+.git-head { display: flex; gap: 4px; align-items: baseline; }
+.git-changes, .git-log { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.git-changes li { display: flex; gap: 8px; align-items: baseline; min-width: 0; }
+.git-st { font-size: 11px; font-weight: 600; min-width: 72px; color: var(--muted-foreground); }
+.git-st.st-M { color: var(--warning); }
+.git-st.st-A, .git-st.st-N { color: var(--primary); }
+.git-st.st-D { color: var(--destructive); }
+.git-path { font: 12px var(--font-mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.git-msg { width: 100%; resize: vertical; font: inherit; background: var(--background); color: inherit; border: 1px solid var(--border); border-radius: var(--radius); padding: 6px 8px; }
+.git-row { display: flex; gap: 6px; flex-wrap: wrap; }
+.git-sub { margin-top: 6px; padding-top: 8px; border-top: 1px solid var(--border); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.git-log li { display: flex; flex-direction: column; padding: 4px 0; border-bottom: 1px solid color-mix(in srgb, var(--border) 50%, transparent); }
+.git-log .muted { font-size: 11.5px; }
+.git-log-msg { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
 /* ---------- Cabeceras de panel ---------- */
 .pane-head {
   display: flex;
@@ -370,6 +390,11 @@ html.pdf-dark[data-theme="dark"] .pdf-page canvas { filter: invert(0.9) hue-rota
 .empty { margin: auto; text-align: center; color: var(--muted-foreground); padding: 20px; }
 .empty p { margin: 0; }
 .empty-title { font: 500 20px/1.3 var(--font-serif); color: var(--foreground); margin-bottom: 6px !important; }
+
+/* ---------- Ventana aparte del PDF ---------- */
+.pdfw { display: flex; flex-direction: column; height: 100vh; background: var(--canvas); }
+.pdfw .pdf-wrap { flex: 1; min-height: 0; display: flex; }
+.pdfw .icon-btn { font-size: 16px; width: 26px; justify-content: center; }
 
 /* ---------- Problemas ---------- */
 .problems { border-top: 1px solid var(--border); background: var(--background); flex: none; }

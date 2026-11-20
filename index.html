@@ -46,6 +46,7 @@
             <button type="button" data-tab="files" class="active">Archivos</button>
             <button type="button" data-tab="outline">Esquema</button>
             <button type="button" data-tab="search">Buscar</button>
+            <button type="button" data-tab="git" id="git-tab" hidden>Git</button>
           </nav>
 
           <section class="side-panel" data-panel="files">
@@ -74,6 +75,10 @@
               <label class="check"><input id="search-regex" type="checkbox" /> .*</label>
             </div>
             <div id="search-results" class="search-results"></div>
+          </section>
+
+          <section class="side-panel" data-panel="git" hidden>
+            <div id="git-panel" class="git-panel"></div>
           </section>
         </aside>
 
@@ -203,7 +208,16 @@
         <label>Archivo principal
           <select id="set-main"></select>
         </label>
-        <label class="row"><input id="set-spell" type="checkbox" /> Corrector ortográfico</label>
+        <label class="row"><input id="set-spell" type="checkbox" /> Corrector ortográfico (ignora comandos, etiquetas y fórmulas)</label>
+        <label>Idioma del corrector
+          <select id="set-spell-lang">
+            <option value="es-MX">Español (México)</option>
+            <option value="es-ES">Español (España)</option>
+            <option value="es">Español</option>
+            <option value="en-US">Inglés (EE. UU.)</option>
+            <option value="en-GB">Inglés (Reino Unido)</option>
+          </select>
+        </label>
         <label class="row"><input id="set-wrap" type="checkbox" /> Ajustar líneas largas</label>
         <label class="row"><input id="set-pdfdark" type="checkbox" /> PDF con colores invertidos en modo oscuro</label>
         <label class="row"><input id="set-lint" type="checkbox" /> Revisar errores mientras escribo</label>

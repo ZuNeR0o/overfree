@@ -1,6 +1,6 @@
 import "@fontsource-variable/inter";
 import { EditorView, basicSetup } from "codemirror";
-import { Compartment, EditorSelection, EditorState, type Extension } from "@codemirror/state";
+import { Annotation, Compartment, EditorSelection, EditorState, type Extension } from "@codemirror/state";
 import { keymap } from "@codemirror/view";
 import { HighlightStyle, syntaxHighlighting } from "@codemirror/language";
 import { autocompletion, startCompletion } from "@codemirror/autocomplete";
@@ -9,6 +9,9 @@ import { latex } from "./overleaf/latex-language";
 import { latexLinter } from "./overleaf/linter/latex-linter";
 import { mathPreview } from "./overleaf/math-preview";
 import { mountToolbar } from "./overleaf/toolbar";
+import { noSpellcheckLatex } from "./overleaf/no-spellcheck";
+import { createGitPanel } from "./gitpanel";
+import type { PdfMessage } from "./pdfwindow";
 import { tags as t } from "@lezer/highlight";
 
 import { compileProject, engineReady, exportAux, importAux, onEngineProgress, warmUp, type Engine } from "./latex";
@@ -17,7 +20,8 @@ import { parseLog, type Problem } from "./logparse";
 import { parseSynctex, forward, inverse, type SyncData } from "./synctex";
 import { PdfViewer, type Zoom } from "./pdfview";
 import { latexCompletions, extractBibEntries, extractLabels } from "./complete";
-import { TEMPLATES, fromZip, guessMain, outline, toZip, wordCount } from "./project";
+import { TEMPLATES, fromZip, guessMain, orderedTexFiles, outline, toZip, wordCount } from "./project";
+import { bibKey, fetchBibtex, findByDoi, parseDoi, renameKey } from "./doi";
 import { ICONS } from "./icons";
 
 // ---------- Utilidades ----------
@@ -68,8 +72,23 @@ function ask(label: string, value = ""): Promise<string | null> {
   input.focus();
   const dot = value.lastIndexOf(".");
   input.setSelectionRange(0, dot > value.lastIndexOf("/") ? dot : value.length);
+  // Enter acepta (el formulario enviaría con el primer botón, que es Cancelar)
+  const onKey = (e: KeyboardEvent) => {
+    if (e.key === "Enter" && !e.isComposing) {
+      e.preventDefault();
+      dlg.close("ok");
+    }
+  };
+  input.addEventListener("keydown", onKey);
   return new Promise((res) => {
-    dlg.addEventListener("close", () => res(dlg.returnValue === "ok" ? input.value : null), { once: true });
+    dlg.addEventListener(
+      "close",
+      () => {
+        input.removeEventListener("keydown", onKey);
+        res(dlg.returnValue === "ok" ? input.value : null);
+      },
+      { once: true },
+    );
   });
 }
 
@@ -125,6 +144,7 @@ type Settings = {
   mathPreview: boolean;
   toolbar: boolean;
   draft: boolean;
+  spellLang: string;
 };
 
 const SET_KEY = "folio:settings";
@@ -143,6 +163,7 @@ const settings: Settings = {
   mathPreview: true,
   toolbar: true,
   draft: true,
+  spellLang: "es-MX",
 };
 try {
   Object.assign(settings, JSON.parse(localStorage.getItem(SET_KEY) ?? "{}"));
@@ -161,7 +182,10 @@ function applyTheme() {
   if (settings.theme === "system") delete document.documentElement.dataset.theme;
   else document.documentElement.dataset.theme = settings.theme;
   document.documentElement.classList.toggle("pdf-dark", settings.pdfDark);
+  themeHook?.();
 }
+/** Se asigna más abajo: avisa del tema a la ventana aparte del PDF. */
+let themeHook: (() => void) | null = null;
 applyTheme();
 
 // ---------- Estado del proyecto ----------
@@ -184,6 +208,11 @@ function markSaving(delta: number) {
   $("sb-save").textContent = saving > 0 ? "Guardando…" : "Guardado";
 }
 
+/** Último contenido que Folio escribió en cada archivo: así un guardado propio nunca
+ *  se confunde con un cambio externo, aunque sigas escribiendo mientras tanto. */
+const ownWrites = new Map<string, StoredFile>();
+const ownKey = (pid: string, path: string) => `${pid}\0${path}`;
+
 function persist(f: StoredFile, delay = 400) {
   const pid = meta.id;
   window.clearTimeout(pending.get(f.path));
@@ -192,8 +221,11 @@ function persist(f: StoredFile, delay = 400) {
     f.path,
     window.setTimeout(async () => {
       pending.delete(f.path);
+      // copia exacta de lo que se escribe en este momento
+      const snapshot: StoredFile = { path: f.path, text: f.text, data: f.data };
+      ownWrites.set(ownKey(pid, f.path), snapshot);
       try {
-        await backend.writeFile(pid, f);
+        await backend.writeFile(pid, snapshot);
       } catch (e) {
         setStatus(`No se pudo guardar ${f.path}: ${e instanceof Error ? e.message : e}`, "error");
       } finally {
@@ -263,7 +295,9 @@ const mathExt = () => (settings.mathPreview ? mathPreview() : []);
 const isTexLike = (p: string | null) => !!p && /\.(tex|sty|cls|ltx|dtx|def|tikz)$/i.test(p);
 const fontExt = () => EditorView.theme({ ".cm-scroller": { fontSize: `${settings.font}px` } });
 const spellExt = () =>
-  EditorView.contentAttributes.of(settings.spell ? { spellcheck: "true", lang: "es", autocorrect: "off" } : { spellcheck: "false" });
+  settings.spell
+    ? [EditorView.contentAttributes.of({ spellcheck: "true", lang: settings.spellLang, autocorrect: "off" }), noSpellcheckLatex]
+    : EditorView.contentAttributes.of({ spellcheck: "false" });
 const wrapExt = () => (settings.wrap ? EditorView.lineWrapping : []);
 
 const index = {
@@ -288,6 +322,8 @@ const wrapWith = (cmd: string) => (view: EditorView) => {
 };
 
 let autoTimer: number | undefined;
+/** Marca los cambios que vienen del disco (no hay que volver a guardarlos). */
+const externalChange = Annotation.define<boolean>();
 
 const extensions: Extension[] = [
   keymap.of([
@@ -323,7 +359,7 @@ const extensions: Extension[] = [
       const before = u.state.sliceDoc(Math.max(0, pos - 60), pos);
       if (/\\[A-Za-z]+\*?(\[[^\]]*\])?\{$/.test(before)) setTimeout(() => startCompletion(view), 0);
     }
-    if (u.docChanged && current) {
+    if (u.docChanged && current && !u.transactions.some((tr) => tr.annotation(externalChange))) {
       const f = findFile(current);
       if (f) {
         f.text = u.state.doc.toString();
@@ -342,7 +378,10 @@ const extensions: Extension[] = [
 const makeState = (doc: string) => EditorState.create({ doc, extensions });
 let toolbar: ReturnType<typeof mountToolbar> | null = null;
 const view = new EditorView({ parent: $("editor"), state: makeState("") });
-toolbar = mountToolbar($("editor-toolbar"), () => view, icon);
+toolbar = mountToolbar($("editor-toolbar"), () => view, icon, [
+  { icon: "book", title: "Añadir referencia por DOI", run: () => void addReferenceByDoi() },
+  { icon: "external", title: "Abrir el PDF en otra ventana", run: () => void openPdfWindow() },
+]);
 $("editor-toolbar").hidden = !settings.toolbar;
 
 function reconfigureAll() {
@@ -737,7 +776,18 @@ function showTab(tab: string) {
   document.querySelectorAll<HTMLElement>(".side-panel").forEach((p) => (p.hidden = p.dataset.panel !== tab));
   if (tab === "outline") renderOutline();
   if (tab === "search") $<HTMLInputElement>("search-input").focus();
+  if (tab === "git") void gitPanel?.refresh();
 }
+
+const gitPanel = desktop
+  ? createGitPanel($("git-panel"), {
+      projectId: () => meta.id,
+      flush: flushPending,
+      status: setStatus,
+      ask,
+    })
+  : null;
+if (desktop) $("git-tab").hidden = false;
 
 function renderOutline() {
   const ul = $("outline");
@@ -854,6 +904,7 @@ function syncForward() {
   const r = forward(sync, current, line);
   if (!r) return setStatus("Esta parte no aparece en el PDF.");
   viewer.reveal(r.page, r.top, r.bottom, r.left, r.right);
+  pdfChannel.postMessage({ type: "reveal", ...r } satisfies PdfMessage);
 }
 $("sync-fwd").onclick = syncForward;
 
@@ -869,6 +920,7 @@ async function showPdf(pdf: Uint8Array) {
   a.href = pdfUrl;
   a.download = `${basename(meta.main).replace(/\.tex$/, "")}.pdf`;
   a.hidden = false;
+  postPdf(); // a la ventana aparte, si está abierta
 }
 $("download").addEventListener("click", (e) => {
   if (!desktop || !lastPdf) return;
@@ -1206,7 +1258,15 @@ async function openProject(id: string) {
   const m = list.find((p) => p.id === id) ?? list[0];
   if (!m) return createProject("Mi proyecto", TEMPLATES.article.files);
   if (meta) await flushPending();
+  diskReady = false; // pausa la vigilancia hasta tener la referencia del nuevo proyecto
   meta = { ...m, folders: m.folders ?? [] };
+  // referencia del disco ANTES de leer: cualquier cambio posterior se detectará
+  const sigs = desktop
+    ? await desktop
+        .manifest(meta.id)
+        .then((l) => new Map(l.map((f) => [f.path, `${f.size}:${f.mtime}`])))
+        .catch(() => new Map<string, string>())
+    : new Map<string, string>();
   files = await backend.loadFiles(meta.id);
   if (!files.length) {
     files = [{ path: "main.tex", text: TEMPLATES.blank.files[0].text }];
@@ -1218,6 +1278,8 @@ async function openProject(id: string) {
   sync = null;
   lastPdf = null;
   lastPrint = "";
+  diskSigs = sigs;
+  diskReady = true;
   current = null;
   collapsed.clear();
   viewer.clear();
@@ -1235,6 +1297,8 @@ async function openProject(id: string) {
   openFile(meta.main);
   scheduleIndex();
   markSaving(0);
+  // el panel de Git debe mostrar (y operar sobre) el proyecto recién abierto
+  if (!document.querySelector<HTMLElement>('[data-panel="git"]')!.hidden) void gitPanel?.refresh();
   setStatus("Pulsa Compilar o Ctrl+Enter.");
   // muestra el último PDF guardado mientras tanto
   const pid = meta.id;
@@ -1377,6 +1441,7 @@ function openSettings() {
   $<HTMLInputElement>("set-math").checked = settings.mathPreview;
   $<HTMLInputElement>("set-toolbar").checked = settings.toolbar;
   $<HTMLInputElement>("set-draft").checked = settings.draft;
+  $<HTMLSelectElement>("set-spell-lang").value = settings.spellLang;
   refreshMainSelect();
   $<HTMLDialogElement>("settings-dlg").showModal();
 }
@@ -1426,6 +1491,11 @@ $("set-toolbar").onchange = (e) => {
   $("editor-toolbar").hidden = !settings.toolbar;
   saveSettings();
 };
+$("set-spell-lang").onchange = (e) => {
+  settings.spellLang = (e.target as HTMLSelectElement).value;
+  saveSettings();
+  reconfigureAll();
+};
 $("set-draft").onchange = (e) => {
   settings.draft = (e.target as HTMLInputElement).checked;
   saveSettings();
@@ -1472,6 +1542,235 @@ document.querySelectorAll<HTMLElement>(".resizer").forEach((r) => {
     saveSettings();
   });
 });
+
+// ---------- PDF en otra ventana ----------
+
+const pdfChannel = new BroadcastChannel("folio-pdf");
+const pdfName = () => `${basename(meta.main).replace(/\.tex$/, "")}.pdf`;
+const postPdf = () => lastPdf && pdfChannel.postMessage({ type: "pdf", pdf: lastPdf, name: pdfName() } satisfies PdfMessage);
+const postTheme = () =>
+  pdfChannel.postMessage({
+    type: "theme",
+    theme: settings.theme === "system" ? null : settings.theme,
+    pdfDark: settings.pdfDark,
+  } satisfies PdfMessage);
+
+themeHook = postTheme;
+
+pdfChannel.onmessage = (ev: MessageEvent<PdfMessage>) => {
+  const m = ev.data;
+  if (m.type === "hello") {
+    postTheme();
+    postPdf();
+  } else if (m.type === "inverse") {
+    if (!sync) return setStatus("Compila de nuevo para activar la sincronización.");
+    const hit = inverse(sync, m.page, m.x, m.y);
+    if (hit && findFile(hit.file)) {
+      openFile(hit.file, hit.line);
+      window.focus();
+    }
+  }
+};
+
+async function openPdfWindow() {
+  if (desktop) await desktop.openWindow("pdf.html");
+  else window.open("/pdf.html", "folio-pdf", "popup,width=900,height=1000");
+}
+
+// ---------- Referencias por DOI ----------
+
+/** Elige el .bib del proyecto: el que cite el documento o el primero; si no hay, lo crea. */
+function targetBib(): { file: StoredFile; created: boolean } {
+  const bibs = files.filter((f) => f.path.endsWith(".bib") && f.text !== undefined);
+  const tex = orderedTexFiles(files, meta.main)
+    .map((f) => f.text ?? "")
+    .join("\n");
+  for (const m of tex.matchAll(/\\(?:addbibresource|bibliography)\{([^}]+)\}/g)) {
+    for (const name of m[1].split(",").map((s) => s.trim())) {
+      const hit = bibs.find((b) => b.path === name || b.path === `${name}.bib` || b.path.endsWith(`/${name}`) || b.path.endsWith(`/${name}.bib`));
+      if (hit) return { file: hit, created: false };
+    }
+  }
+  if (bibs[0]) return { file: bibs[0], created: false };
+  // se crea solo en memoria; se añade al proyecto cuando la descarga funcione
+  return { file: { path: "referencias.bib", text: "" }, created: true };
+}
+
+async function addReferenceByDoi() {
+  const input = await ask("DOI o enlace del artículo (p. ej. 10.1103/PhysRev.47.777):");
+  if (!input) return;
+  const doi = parseDoi(input);
+  if (!doi) return void alert("No reconozco un DOI en ese texto. Debe empezar por 10.");
+  const pid = meta.id;
+  const editing = current;
+  const docBefore = view.state.doc;
+  const posBefore = view.state.selection.main.head;
+  setStatus(`Buscando ${doi}…`);
+  try {
+    const { file, created } = targetBib();
+    let key = findByDoi(file.text ?? "", doi);
+    if (!key) {
+      let entry = await fetchBibtex(doi);
+      if (pid !== meta.id) return; // cambiaste de proyecto durante la descarga
+      key = bibKey(entry) ?? `ref${Date.now()}`;
+      // evita claves repetidas con otras entradas
+      const existing = new Set(extractBibEntries([file.text ?? ""]).map((e) => e.key));
+      let unique = key;
+      for (let i = 0; existing.has(unique); i++) unique = key + String.fromCharCode(97 + i);
+      if (unique !== key) entry = renameKey(entry, unique);
+      key = unique;
+      if (created && !findFile(file.path)) files.push(file);
+      const sep = file.text && !file.text.endsWith("\n\n") ? (file.text.endsWith("\n") ? "\n" : "\n\n") : "";
+      file.text = (file.text ?? "") + sep + entry;
+      states.delete(file.path);
+      if (current === file.path) openFile(file.path);
+      persist(file, 0);
+      renderTree();
+    }
+    if (pid === meta.id && editing === current && isTexLike(current)) {
+      // si el documento cambió mientras se descargaba, se usa la posición actual del cursor
+      const pos = view.state.doc === docBefore ? posBefore : view.state.selection.main.head;
+      const ins = `\\cite{${key}}`;
+      view.dispatch({ changes: { from: pos, insert: ins }, selection: { anchor: pos + ins.length } });
+      view.focus();
+    }
+    setStatus(
+      created
+        ? `Referencia «${key}» añadida a referencias.bib. Añade \\bibliography{referencias} (o \\addbibresource{referencias.bib}) al documento.`
+        : `Referencia «${key}» añadida a ${file.path}.`,
+    );
+  } catch (e) {
+    setStatus(e instanceof Error ? e.message : String(e), "error");
+  }
+}
+
+// ---------- Cambios hechos fuera de Folio (Google Drive, VS Code, Git...) ----------
+
+let diskSigs = new Map<string, string>();
+let diskReady = false; // la referencia inicial se toma al abrir el proyecto
+let watching = false;
+
+/** Los archivos de Windows pueden traer \r\n; el editor siempre trabaja con \n. */
+const normEol = (s: string) => s.replace(/\r\n?/g, "\n");
+
+const sameContent = (a: StoredFile, b: StoredFile) => {
+  if (a.text !== undefined || b.text !== undefined) return a.text !== undefined && b.text !== undefined && normEol(a.text) === normEol(b.text);
+  const x = a.data ?? new Uint8Array();
+  const y = b.data ?? new Uint8Array();
+  return x.length === y.length && x.every((v, i) => v === y[i]);
+};
+
+/** Compara el disco con lo que hay en memoria y aplica los cambios externos. */
+async function checkExternalChanges() {
+  if (!desktop || watching || !meta || !diskReady) return;
+  watching = true;
+  const pid = meta.id;
+  try {
+    const list = await desktop.manifest(pid);
+    if (pid !== meta.id) return;
+    const next = new Map(list.map((f) => [f.path, `${f.size}:${f.mtime}`]));
+    const prev = diskSigs;
+    diskSigs = next;
+
+    const touched = [...next.keys()].filter((p) => prev.get(p) !== next.get(p));
+    const removed = [...prev.keys()].filter((p) => !next.has(p));
+    const updated: string[] = [];
+    let snapshotted = false;
+
+    for (const p of touched) {
+      const disk = await desktop.readFile(pid, p).catch(() => null);
+      if (pid !== meta.id) return; // cambiaste de proyecto mientras tanto
+      if (!disk) {
+        diskSigs.delete(p); // no se pudo leer (p. ej. bloqueado): se reintenta luego
+        continue;
+      }
+      const local = findFile(p);
+      if (local && sameContent(local, disk)) continue;
+      const own = ownWrites.get(ownKey(pid, p));
+      if (own && sameContent(own, disk)) continue; // es un guardado nuestro anterior
+
+      if (local && pending.has(p)) {
+        // hay cambios tuyos sin guardar en ese mismo archivo
+        const takeDisk = confirm(
+          `${p} se modificó fuera de Folio mientras lo editabas.\n\nAceptar: cargar la versión del disco (la tuya queda en el historial).\nCancelar: conservar la tuya y sobrescribir el disco.`,
+        );
+        if (!takeDisk) {
+          persist(local, 0);
+          continue;
+        }
+        window.clearTimeout(pending.get(p));
+        pending.delete(p);
+        markSaving(-1);
+      }
+      if (local?.text !== undefined && !snapshotted) {
+        // por si acaso: guarda el estado actual antes de sustituirlo
+        snapshotted = true;
+        await backend.addSnapshot(pid, { id: newId(), time: Date.now(), label: "Antes de cambios externos", files: textFiles() });
+        if (pid !== meta.id) return;
+      }
+      applyExternal(disk);
+      updated.push(p);
+    }
+
+    if (pid !== meta.id) return;
+    for (const p of removed) {
+      if (!findFile(p) || pending.has(p) || p === meta.main) continue;
+      files = files.filter((f) => f.path !== p);
+      states.delete(p);
+      updated.push(p);
+      if (current === p) {
+        current = null;
+        openFile(meta.main);
+      }
+    }
+
+    if (updated.length) {
+      renderTree();
+      scheduleIndex();
+      setStatus(
+        updated.length === 1 ? `${updated[0]} cambió fuera de Folio y se actualizó.` : `${updated.length} archivos cambiaron fuera de Folio y se actualizaron.`,
+      );
+      if (settings.auto) {
+        window.clearTimeout(autoTimer);
+        autoTimer = window.setTimeout(() => void compile(true), settings.delay);
+      }
+    }
+  } catch {
+    /* sin conexión con el servidor local: se reintenta en la siguiente vuelta */
+  } finally {
+    watching = false;
+  }
+}
+
+function applyExternal(disk: StoredFile) {
+  if (disk.text !== undefined) disk = { ...disk, text: normEol(disk.text) };
+  const local = findFile(disk.path);
+  if (!local) {
+    files.push(disk);
+    return;
+  }
+  local.text = disk.text;
+  local.data = disk.data;
+  if (current === disk.path && disk.text !== undefined) {
+    // sustituye el contenido conservando la posición del cursor y el deshacer
+    const head = Math.min(view.state.selection.main.head, disk.text.length);
+    view.dispatch({
+      changes: { from: 0, to: view.state.doc.length, insert: disk.text },
+      selection: { anchor: head },
+      annotations: externalChange.of(true),
+    });
+  } else {
+    states.delete(disk.path);
+    if (current === disk.path) openFile(disk.path);
+  }
+}
+
+if (desktop) {
+  window.setInterval(() => {
+    if (document.visibilityState === "visible") void checkExternalChanges();
+  }, 2000);
+  window.addEventListener("focus", () => void checkExternalChanges());
+}
 
 // ---------- Escritorio ----------
 

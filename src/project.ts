@@ -89,7 +89,12 @@ export function toZip(files: StoredFile[]): Uint8Array {
 export function fromZip(bytes: Uint8Array): StoredFile[] {
   const entries = unzipSync(bytes);
   let paths = Object.keys(entries).filter(
-    (p) => !p.endsWith("/") && !p.startsWith("__MACOSX/") && !/(^|\/)\.DS_Store$/.test(p),
+    (p) =>
+      !p.endsWith("/") &&
+      !p.startsWith("__MACOSX/") &&
+      !/(^|\/)\.DS_Store$/.test(p) &&
+      // nunca importar carpetas internas (.git podría traer configuración peligrosa)
+      !/(^|\/)\.(git|folio)(\/|$)/i.test(p),
   );
   // si todo viene dentro de una única carpeta, se quita ese prefijo
   const first = paths[0]?.split("/")[0];

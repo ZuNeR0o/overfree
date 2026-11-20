@@ -67,7 +67,14 @@ fn safe_join(root: &Path, rel: &str) -> Res<PathBuf> {
     }
     for c in p.components() {
         match c {
-            Component::Normal(s) if s != META_DIR => {}
+            // .folio y .git son internos (Windows no distingue mayúsculas: .GIT = .git)
+            Component::Normal(s) => {
+                let low = s.to_string_lossy().to_lowercase();
+                let low = low.trim_end_matches(['.', ' ']);
+                if low == META_DIR || low == ".git" {
+                    return Err("ruta no válida".into());
+                }
+            }
             _ => return Err("ruta no válida".into()),
         }
     }
@@ -217,11 +224,10 @@ impl Store {
         self.save_entries(&list)
     }
 
-    pub fn load_files(&self, id: &str) -> Res<Value> {
-        let root = self.dir_of(id)?;
+    /// Recorre los archivos del proyecto (sin .folio, .git ni auxiliares de LaTeX).
+    fn walk(&self, root: &Path) -> Vec<(String, PathBuf, fs::Metadata)> {
         let mut out = vec![];
-        let b64 = base64::engine::general_purpose::STANDARD;
-        let mut stack = vec![root.clone()];
+        let mut stack = vec![root.to_path_buf()];
         while let Some(dir) = stack.pop() {
             let Ok(rd) = fs::read_dir(&dir) else { continue };
             for ent in rd.flatten() {
@@ -234,29 +240,66 @@ impl Store {
                     }
                     continue;
                 }
-                if !ft.is_file() || is_artifact(&name) {
+                // los archivos temporales de Drive/Office y los nuestros (.tmp) se ignoran
+                if !ft.is_file() || is_artifact(&name) || name.ends_with(".tmp") || name.starts_with("~$") || name == "desktop.ini" {
                     continue;
                 }
-                if ent.metadata().map(|m| m.len() > MAX_FILE).unwrap_or(true) {
+                let Ok(meta) = ent.metadata() else { continue };
+                if meta.len() > MAX_FILE {
                     continue;
                 }
-                let rel = path
-                    .strip_prefix(&root)
-                    .map_err(e)?
-                    .to_string_lossy()
-                    .replace('\\', "/");
-                let Ok(bytes) = fs::read(&path) else { continue };
-                if is_text(&rel) {
-                    match String::from_utf8(bytes) {
-                        Ok(text) => out.push(json!({ "path": rel, "text": text })),
-                        Err(err) => out.push(json!({ "path": rel, "b64": b64.encode(err.into_bytes()) })),
-                    }
-                } else {
-                    out.push(json!({ "path": rel, "b64": b64.encode(bytes) }));
-                }
+                let Ok(rel) = path.strip_prefix(root) else { continue };
+                out.push((rel.to_string_lossy().replace('\\', "/"), path, meta));
             }
         }
+        out
+    }
+
+    fn file_json(rel: &str, bytes: Vec<u8>) -> Value {
+        let b64 = base64::engine::general_purpose::STANDARD;
+        if is_text(rel) {
+            match String::from_utf8(bytes) {
+                Ok(text) => json!({ "path": rel, "text": text }),
+                Err(err) => json!({ "path": rel, "b64": b64.encode(err.into_bytes()) }),
+            }
+        } else {
+            json!({ "path": rel, "b64": b64.encode(bytes) })
+        }
+    }
+
+    pub fn load_files(&self, id: &str) -> Res<Value> {
+        let root = self.dir_of(id)?;
+        let out = self
+            .walk(&root)
+            .into_iter()
+            .filter_map(|(rel, path, _)| fs::read(&path).ok().map(|b| Self::file_json(&rel, b)))
+            .collect();
         Ok(Value::Array(out))
+    }
+
+    /// Lista ligera (ruta, tamaño, fecha) para detectar cambios hechos fuera de Folio.
+    pub fn manifest(&self, id: &str) -> Res<Value> {
+        let root = self.dir_of(id)?;
+        let out = self
+            .walk(&root)
+            .into_iter()
+            .map(|(rel, _, meta)| {
+                let mtime = meta
+                    .modified()
+                    .ok()
+                    .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+                    .map(|d| d.as_millis() as u64)
+                    .unwrap_or_default();
+                json!({ "path": rel, "size": meta.len(), "mtime": mtime })
+            })
+            .collect();
+        Ok(Value::Array(out))
+    }
+
+    pub fn read_file(&self, id: &str, rel: &str) -> Res<Value> {
+        let root = self.dir_of(id)?;
+        let bytes = fs::read(safe_join(&root, rel)?).map_err(e)?;
+        Ok(Self::file_json(rel, bytes))
     }
 
     pub fn write_file(&self, id: &str, rel: &str, data: &[u8]) -> Res<()> {

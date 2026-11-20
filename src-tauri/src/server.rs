@@ -245,6 +245,34 @@ fn api(ctx: &Ctx, mut req: Request, path: &str, url: &str) {
             }
         }
 
+        (Method::Post, ["open-window"]) => {
+            // solo páginas propias conocidas
+            let page = query(url, "page").unwrap_or_default();
+            if page != "pdf.html" {
+                return fail(req, 400, "página no permitida");
+            }
+            let app = ctx.app.clone();
+            let target = format!("http://{}/{}", ctx.host, page);
+            let res = ctx.app.run_on_main_thread(move || {
+                use tauri::Manager;
+                if let Some(w) = app.get_webview_window("pdf") {
+                    let _ = w.unminimize();
+                    let _ = w.set_focus();
+                    return;
+                }
+                if let Ok(u) = target.parse() {
+                    let _ = tauri::WebviewWindowBuilder::new(&app, "pdf", tauri::WebviewUrl::External(u))
+                        .title("Folio · PDF")
+                        .inner_size(900.0, 1100.0)
+                        .build();
+                }
+            });
+            match res {
+                Ok(()) => ok(req),
+                Err(err) => fail(req, 500, &err.to_string()),
+            }
+        }
+
         (Method::Post, ["save-as"]) => {
             let name = query(url, "name").unwrap_or_else(|| "documento".into());
             let data = body(&mut req);
@@ -272,6 +300,11 @@ fn api(ctx: &Ctx, mut req: Request, path: &str, url: &str) {
             }
             (Method::Delete, []) => done!(st.delete_project(id)),
             (Method::Get, ["files"]) => reply!(st.load_files(id)),
+            (Method::Get, ["manifest"]) => reply!(st.manifest(id)),
+            (Method::Get, ["file"]) => match query(url, "path") {
+                Some(p) => reply!(st.read_file(id, &p)),
+                None => fail(req, 400, "falta path"),
+            },
             (Method::Put, ["file"]) => match query(url, "path") {
                 Some(p) => {
                     let b = body(&mut req);
@@ -297,6 +330,28 @@ fn api(ctx: &Ctx, mut req: Request, path: &str, url: &str) {
             (Method::Put, ["output", which]) => {
                 let b = body(&mut req);
                 done!(st.save_output(id, which, &b))
+            }
+            (m, ["git", action]) => {
+                let dir = match st.project_dir(id) {
+                    Ok(d) => d,
+                    Err(err) => return fail(req, 404, &err),
+                };
+                let b = body(&mut req);
+                let v: Value = serde_json::from_slice(&b).unwrap_or(Value::Null);
+                let s = |k: &str| v[k].as_str().map(str::to_string);
+                match (m, *action) {
+                    (Method::Get, "status") => reply!(crate::git::status(&dir)),
+                    (Method::Get, "log") => reply!(crate::git::log(&dir)),
+                    (Method::Post, "init") => done!(crate::git::init(&dir)),
+                    (Method::Post, "commit") => {
+                        let (name, email) = (s("name"), s("email"));
+                        reply!(crate::git::commit(&dir, &s("message").unwrap_or_default(), name.as_deref(), email.as_deref())
+                            .map(|out| json!({ "output": out })))
+                    }
+                    (Method::Post, "remote") => done!(crate::git::set_remote(&dir, &s("url").unwrap_or_default())),
+                    (Method::Post, "sync") => reply!(crate::git::sync(&dir).map(|out| json!({ "output": out }))),
+                    _ => fail(req, 404, "acción de git desconocida"),
+                }
             }
             (Method::Post, ["reveal"]) => match st.project_dir(id) {
                 Ok(dir) => {

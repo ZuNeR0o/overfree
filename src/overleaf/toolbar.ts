@@ -171,7 +171,9 @@ const table = (cols: number, rows: number) =>
 
 type Icon = (name: string) => string;
 
-export function mountToolbar(root: HTMLElement, getView: () => EditorView, icon: Icon) {
+export type ToolbarExtra = { icon: string; title: string; run: () => void };
+
+export function mountToolbar(root: HTMLElement, getView: () => EditorView, icon: Icon, extras: ToolbarExtra[] = []) {
   const btn = (ic: string, title: string, run: (v: EditorView) => unknown, label?: string) => {
     const b = document.createElement("button");
     b.type = "button";
@@ -250,6 +252,7 @@ export function mountToolbar(root: HTMLElement, getView: () => EditorView, icon:
     btn("link", "Enlace", insertSnippet("\\href{#{url}}{#{texto}}")),
     btn("ref", "Referencia cruzada (\\ref)", insertSnippet("\\ref{#{}}")),
     btn("quote", "Cita bibliográfica (\\cite)", insertSnippet("\\cite{#{}}")),
+    ...extras.map((x) => btn(x.icon, x.title, () => x.run())),
     sep(),
     btn("photo", "Insertar figura", insertSnippet(FIGURE, true)),
     tableWrap,

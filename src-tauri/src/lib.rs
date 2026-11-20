@@ -6,6 +6,7 @@
 //! El mismo servidor expone /api, protegido con un token aleatorio, para guardar
 //! los proyectos como carpetas reales en Documentos\Folio.
 
+mod git;
 mod server;
 mod store;
 

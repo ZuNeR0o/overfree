@@ -257,6 +257,23 @@ class DesktopBackend implements Backend {
   }
 
   // extras de escritorio
+  /** Ruta, tamaño y fecha de cada archivo: sirve para notar cambios hechos fuera de Folio. */
+  manifest(id: string) {
+    return this.json<{ path: string; size: number; mtime: number }[]>("GET", `${this.p(id)}/manifest`);
+  }
+  async readFile(id: string, path: string): Promise<StoredFile> {
+    const r = await this.json<{ path: string; text?: string; b64?: string }>("GET", `${this.p(id)}/file`, undefined, { path });
+    return r.text !== undefined ? { path, text: r.text } : { path, data: Uint8Array.from(atob(r.b64 ?? ""), (c) => c.charCodeAt(0)) };
+  }
+  /** Control de versiones con Git (status, log, init, commit, remote, sync). */
+  git<T = unknown>(id: string, action: string, body?: Record<string, string>) {
+    const method = action === "status" || action === "log" ? "GET" : "POST";
+    return this.json<T>(method, `${this.p(id)}/git/${action}`, body ? JSON.stringify(body) : undefined);
+  }
+  /** Abre una ventana nativa adicional (p. ej. el PDF en otro monitor). */
+  async openWindow(page: string) {
+    await this.call("POST", "/open-window", undefined, { page });
+  }
   openFolder() {
     return this.json<ProjectMeta | null>("POST", "/open-folder");
   }
