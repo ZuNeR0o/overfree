@@ -1,6 +1,7 @@
 // Utilidades sobre el contenido del proyecto: esquema, conteo de palabras,
 // ZIP y plantillas.
 
+import { decodeText, encodeText } from "./encoding";
 import { strToU8, unzipSync, zipSync, type Zippable } from "fflate";
 import { isTextPath, type StoredFile } from "./store";
 
@@ -82,7 +83,8 @@ export function wordCount(files: StoredFile[], main: string) {
 
 export function toZip(files: StoredFile[]): Uint8Array {
   const z: Zippable = {};
-  for (const f of files) z[f.path] = f.text !== undefined ? strToU8(f.text) : (f.data ?? new Uint8Array());
+  for (const f of files)
+    z[f.path] = f.text !== undefined ? (f.encoding ? encodeText(f.text, f.encoding) : strToU8(f.text)) : (f.data ?? new Uint8Array());
   return zipSync(z, { level: 6 });
 }
 
@@ -102,10 +104,11 @@ export function fromZip(bytes: Uint8Array): StoredFile[] {
     paths = paths.map((p) => p.slice(first.length + 1));
     for (const p of paths) entries[p] = entries[first + "/" + p];
   }
-  const dec = new TextDecoder();
-  return paths.map((path) =>
-    isTextPath(path) ? { path, text: dec.decode(entries[path]) } : { path, data: entries[path] },
-  );
+  return paths.map((path) => {
+    if (!isTextPath(path)) return { path, data: entries[path] };
+    const { text, encoding } = decodeText(entries[path]); // UTF-8 o, si no lo es, Latin-1
+    return encoding ? { path, text, encoding } : { path, text };
+  });
 }
 
 /** Adivina el archivo principal: el que tiene \documentclass, preferiblemente main.tex. */

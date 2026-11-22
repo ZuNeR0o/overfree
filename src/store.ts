@@ -2,6 +2,7 @@
 // ~5 MB de localStorage). En la app de escritorio se sustituye por carpetas reales
 // en disco (ver electron/preload.cjs), con la misma interfaz.
 
+import { decodeText, encodeText, type TextEncodingName } from "./encoding";
 import type { Engine } from "./latex";
 
 export type ProjectMeta = {
@@ -16,7 +17,13 @@ export type ProjectMeta = {
   dir?: string;
 };
 
-export type StoredFile = { path: string; text?: string; data?: Uint8Array };
+export type StoredFile = {
+  path: string;
+  text?: string;
+  data?: Uint8Array;
+  /** Solo si el archivo de texto no está en UTF-8: se guarda y compila en esa codificación. */
+  encoding?: TextEncodingName;
+};
 
 export type Snapshot = {
   id: string;
@@ -127,7 +134,7 @@ class BrowserBackend implements Backend {
   async loadFiles(id: string) {
     const { os } = await this.store("files");
     const rows = (await req(os.index("pid").getAll(id))) as (StoredFile & { pid: string })[];
-    return rows.map(({ path, text, data }) => ({ path, text, data }));
+    return rows.map(({ path, text, data, encoding }) => ({ path, text, data, encoding }));
   }
 
   async writeFile(id: string, file: StoredFile) {
@@ -174,6 +181,18 @@ class BrowserBackend implements Backend {
 
 // ---------- Escritorio (Tauri): carpetas reales a través del servidor local en Rust ----------
 
+/**
+ * Fila del servidor → StoredFile. El servidor envía como binario (b64) los archivos de texto
+ * que no son UTF-8 válido: aquí se decodifican (p. ej. Latin-1) para poder editarlos.
+ */
+function fromRow(path: string, r: { text?: string; b64?: string }): StoredFile {
+  if (r.text !== undefined) return { path, text: r.text };
+  const data = Uint8Array.from(atob(r.b64 ?? ""), (c) => c.charCodeAt(0));
+  if (!isTextPath(path)) return { path, data };
+  const { text, encoding } = decodeText(data);
+  return encoding ? { path, text, encoding } : { path, text };
+}
+
 declare global {
   interface Window {
     __FOLIO?: { token: string; api: string };
@@ -213,12 +232,15 @@ class DesktopBackend implements Backend {
   }
   async loadFiles(id: string) {
     const rows = await this.json<{ path: string; text?: string; b64?: string }[]>("GET", `${this.p(id)}/files`);
-    return rows.map((r) =>
-      r.text !== undefined ? { path: r.path, text: r.text } : { path: r.path, data: Uint8Array.from(atob(r.b64 ?? ""), (c) => c.charCodeAt(0)) },
-    );
+    return rows.map((r) => fromRow(r.path, r));
   }
   async writeFile(id: string, file: StoredFile) {
-    const body = file.text !== undefined ? file.text : new Blob([(file.data ?? new Uint8Array()).slice()]);
+    const body =
+      file.text !== undefined
+        ? file.encoding
+          ? new Blob([encodeText(file.text, file.encoding).slice()]) // se guarda en su codificación original
+          : file.text
+        : new Blob([(file.data ?? new Uint8Array()).slice()]);
     await this.call("PUT", `${this.p(id)}/file`, body, { path: file.path });
   }
   async deleteFile(id: string, path: string) {
@@ -263,7 +285,7 @@ class DesktopBackend implements Backend {
   }
   async readFile(id: string, path: string): Promise<StoredFile> {
     const r = await this.json<{ path: string; text?: string; b64?: string }>("GET", `${this.p(id)}/file`, undefined, { path });
-    return r.text !== undefined ? { path, text: r.text } : { path, data: Uint8Array.from(atob(r.b64 ?? ""), (c) => c.charCodeAt(0)) };
+    return fromRow(path, r);
   }
   /** Control de versiones con Git (status, log, init, commit, remote, sync). */
   git<T = unknown>(id: string, action: string, body?: Record<string, string>) {

@@ -8,6 +8,8 @@ export type Problem = {
   file: string | null;
   line: number | null;
   context?: string;
+  /** Quién lo detectó (por defecto, el registro de LaTeX). */
+  source?: string;
 };
 
 /** TeX corta las líneas a 79 caracteres; las une de nuevo. */

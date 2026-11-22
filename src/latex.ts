@@ -1,5 +1,7 @@
 // Compilador LaTeX en el navegador con BusyTeX (WebAssembly), API de texlyre-busytex 1.x.
 
+import { decodeText } from "./encoding";
+
 type Runner = InstanceType<typeof import("texlyre-busytex").BusyTexRunner>;
 
 export type Engine = "pdflatex" | "xelatex" | "lualatex";
@@ -64,8 +66,9 @@ export function warmUp() {
 
 const texSources = (files: ProjectFile[]) =>
   files
-    .filter((f) => /\.(tex|sty|cls)$/.test(f.path) && typeof f.content === "string")
-    .map((f) => f.content as string)
+    .filter((f) => /\.(tex|sty|cls)$/.test(f.path))
+    // los .tex en Latin-1 llegan como bytes: se decodifican solo para detectar paquetes
+    .map((f) => (typeof f.content === "string" ? f.content : decodeText(f.content).text))
     .join("\n");
 
 /** Decide BibTeX/Biber/makeindex según lo que use el proyecto. */
@@ -110,9 +113,15 @@ async function run(
   draft: boolean,
 ): Promise<CompileResult> {
   const mainFile = files.find((f) => f.path === main);
-  if (!mainFile || typeof mainFile.content !== "string") {
+  if (!mainFile) {
     throw new Error(`No se encontró el archivo principal ${main}.`);
   }
+  // BusyTeX escribe el archivo principal como UTF-8. Si está en otra codificación (Latin-1),
+  // se compila un envoltorio que hace \input del original con sus bytes intactos.
+  const wrapped = typeof mainFile.content !== "string";
+  const dir = main.includes("/") ? main.slice(0, main.lastIndexOf("/") + 1) : "";
+  const mainPath = wrapped ? `${dir}__folio_main.tex` : main;
+  const input = wrapped ? `\\input{${main.slice(dir.length)}}\n` : (mainFile.content as string);
 
   const [lib, r] = await Promise.all([import("texlyre-busytex"), loadRunner()]);
   const Compiler = {
@@ -125,15 +134,17 @@ async function run(
   const own = new Set(files.map((f) => f.path));
   const aux = (auxCache.get(cacheKey) ?? []).filter((f) => !own.has(f.path));
   const result = await new Compiler(r).compile({
-    input: mainFile.content,
-    mainTexPath: main,
+    input,
+    mainTexPath: mainPath,
     // modo rápido: una pasada, sin bibliografía ni índice (usa los de la última vez)
     bibtex: tools.bibtex && !draft,
     biber: tools.biber && !draft,
     makeindex: tools.makeindex && !draft,
     rerun: !draft, // pasadas extra solo si TeX las pide (ver scripts/patch-busytex.mjs)
-    additionalFiles: [...files.filter((f) => f !== mainFile), ...aux],
+    additionalFiles: [...files.filter((f) => wrapped || f !== mainFile), ...aux],
     remoteEndpoint: online ? REMOTE_ENDPOINT : undefined,
+    // con el envoltorio, BusyTeX no ve los \usepackage del original: se cargan todos los paquetes
+    ...(wrapped ? { dataPackagesJs: CATALOG } : {}),
   });
 
   if (result.pdf) {

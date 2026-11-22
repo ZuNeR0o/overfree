@@ -100,7 +100,7 @@ const syncBeginEnd = EditorView.updateListener.of((u) => {
 const LIST_ENVS = new Set(["itemize", "enumerate", "description"]);
 
 /** Entornos abiertos antes de `pos` (el último es el más interior), ignorando comentarios. */
-function openEnvsAt(rawText: string, pos: number): { name: string; end: number }[] {
+export function openEnvsAt(rawText: string, pos: number): { name: string; end: number }[] {
   const text = maskComments(rawText.slice(0, pos));
   const stack: { name: string; end: number }[] = [];
   ENV_RE.lastIndex = Math.max(0, pos - 100_000);

@@ -1,17 +1,21 @@
 import "@fontsource-variable/inter";
 import { EditorView, basicSetup } from "codemirror";
 import { Annotation, Compartment, EditorSelection, EditorState, type Extension } from "@codemirror/state";
+import { isolateHistory } from "@codemirror/commands";
 import { keymap } from "@codemirror/view";
 import { HighlightStyle, indentUnit, syntaxHighlighting } from "@codemirror/language";
 import { acceptCompletion, autocompletion, startCompletion } from "@codemirror/autocomplete";
 import { indentLess, indentMore } from "@codemirror/commands";
 import { forceLinting, lintGutter, setDiagnostics, type Diagnostic } from "@codemirror/lint";
+import { decodeText, encodeText, unencodable } from "./encoding";
 import { latex } from "./overleaf/latex-language";
 import { latexLinter } from "./overleaf/linter/latex-linter";
 import { mathPreview } from "./overleaf/math-preview";
 import { mountToolbar } from "./overleaf/toolbar";
 import { noSpellcheckLatex } from "./overleaf/no-spellcheck";
-import { alignColumns, structureEditing, structureKeymap } from "./structure";
+import { alignColumns, openEnvsAt, structureEditing, structureKeymap } from "./structure";
+import { checkProject } from "./checks";
+import { parseDelimited, parseTsv, toLatexTable, type Rows } from "./tables";
 import { mountSymbolPalette } from "./symbols";
 import { createGitPanel } from "./gitpanel";
 import type { PdfMessage } from "./pdfwindow";
@@ -163,6 +167,7 @@ type Settings = {
   compiler: "builtin" | "system";
   /** Proyectos (id) a los que el usuario permitió -shell-escape. */
   shellEscapeProjects: string[];
+  projectChecks: boolean;
 };
 
 const SET_KEY = "folio:settings";
@@ -184,6 +189,7 @@ const settings: Settings = {
   spellLang: "es-MX",
   compiler: "builtin",
   shellEscapeProjects: [],
+  projectChecks: true,
 };
 try {
   Object.assign(settings, JSON.parse(localStorage.getItem(SET_KEY) ?? "{}"));
@@ -214,7 +220,10 @@ let meta: ProjectMeta;
 let files: StoredFile[] = [];
 let current: string | null = null;
 const states = new Map<string, EditorState>(); // conserva deshacer/rehacer por archivo
-let problems: Problem[] = [];
+let problems: Problem[] = []; // del registro de la última compilación
+/** Avisos de la revisión del proyecto (etiquetas, referencias, imágenes…), sin compilar. */
+let checkProblems: Problem[] = [];
+const allProblems = () => [...problems, ...checkProblems];
 let sync: SyncData | null = null;
 let lastPdf: Uint8Array | null = null;
 const collapsed = new Set<string>();
@@ -233,8 +242,26 @@ function markSaving(delta: number) {
 const ownWrites = new Map<string, StoredFile>();
 const ownKey = (pid: string, path: string) => `${pid}\0${path}`;
 
+/** Lee un archivo subido o importado: texto (UTF-8 o Latin-1) o binario. */
+async function readUpload(file: File, path: string): Promise<StoredFile> {
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  if (!isTextPath(path)) return { path, data: bytes };
+  const { text, encoding } = decodeText(bytes);
+  return encoding ? { path, text, encoding } : { path, text };
+}
+
+let encodingWarned = "";
 function persist(f: StoredFile, delay = 400) {
   const pid = meta.id;
+  if (f.encoding && f.text !== undefined) {
+    // un archivo Latin-1 no puede guardar α, ≤…: se avisa una vez (se guardarían como «?»)
+    const bad = unencodable(f.text);
+    const key = `${f.path}:${bad.join("")}`;
+    if (bad.length && key !== encodingWarned) {
+      encodingWarned = key;
+      setStatus(`${f.path} está en Latin-1 y no admite ${bad.slice(0, 5).join(" ")}: se guardarían como «?». Usa comandos LaTeX (p. ej. \\alpha) o conviértelo a UTF-8.`, "error");
+    }
+  }
   window.clearTimeout(pending.get(f.path));
   if (!pending.has(f.path)) markSaving(1);
   pending.set(
@@ -242,7 +269,7 @@ function persist(f: StoredFile, delay = 400) {
     window.setTimeout(async () => {
       pending.delete(f.path);
       // copia exacta de lo que se escribe en este momento
-      const snapshot: StoredFile = { path: f.path, text: f.text, data: f.data };
+      const snapshot: StoredFile = { path: f.path, text: f.text, data: f.data, encoding: f.encoding };
       ownWrites.set(ownKey(pid, f.path), snapshot);
       try {
         await backend.writeFile(pid, snapshot);
@@ -311,7 +338,22 @@ const fontComp = new Compartment();
 const spellComp = new Compartment();
 const wrapComp = new Compartment();
 const mathComp = new Compartment();
-const mathExt = () => (settings.mathPreview ? mathPreview() : []);
+/** Cambia cada vez que cambia algún archivo: invalida cachés que dependen del proyecto. */
+let filesVersion = 0;
+let texSourceCache = { key: "", value: "" };
+/** Texto de los demás .tex/.sty/.cls del proyecto (preámbulo, macros.tex…) para la vista previa. */
+function otherTexSources(): string {
+  const key = `${filesVersion}|${current}`;
+  if (texSourceCache.key !== key) {
+    const value = files
+      .filter((f) => f.path !== current && f.text !== undefined && /\.(tex|sty|cls)$/i.test(f.path))
+      .map((f) => f.text)
+      .join("\n");
+    texSourceCache = { key, value };
+  }
+  return texSourceCache.value;
+}
+const mathExt = () => (settings.mathPreview ? mathPreview(otherTexSources) : []);
 const isTexLike = (p: string | null) => !!p && /\.(tex|sty|cls|ltx|dtx|def|tikz)$/i.test(p);
 const fontExt = () => EditorView.theme({ ".cm-scroller": { fontSize: `${settings.font}px` } });
 const spellExt = () =>
@@ -443,7 +485,7 @@ function reconfigureAll() {
 }
 
 function diagnosticsFor(path: string, state: EditorState): Diagnostic[] {
-  return problems
+  return allProblems()
     .filter((p) => p.file === path && p.line)
     .map((p) => {
       const ln = state.doc.line(Math.min(Math.max(1, p.line!), state.doc.lines));
@@ -452,7 +494,7 @@ function diagnosticsFor(path: string, state: EditorState): Diagnostic[] {
         to: ln.to,
         severity: p.level,
         message: p.message,
-        source: "LaTeX",
+        source: p.source ?? "LaTeX",
       } satisfies Diagnostic;
     });
 }
@@ -468,6 +510,7 @@ function openFile(path: string, line?: number) {
       ...(i < arr.length - 1 ? [el("span", { cls: "crumb-sep" }, "/")] : []),
     ]),
     ...(path === meta.main ? [el("span", { cls: "badge" }, "principal")] : []),
+    ...(f.encoding ? [el("span", { cls: "badge", title: "Este archivo no está en UTF-8: se guarda y compila en Latin-1 (Windows-1252)" }, "Latin-1")] : []),
   );
 
   const bin = $("binary-view");
@@ -563,14 +606,78 @@ async function addImageFromEditor(file: File, view: EditorView, pos: number) {
 
 function onPaste(e: ClipboardEvent, v: EditorView) {
   const img = [...(e.clipboardData?.files ?? [])].find((f) => f.type.startsWith("image/"));
-  if (!img) return false;
+  if (!img) {
+    // celdas de una hoja de cálculo → tabla LaTeX
+    const rows = parseTsv(e.clipboardData?.getData("text/plain") ?? "");
+    if (!rows || !isTexLike(current)) return false;
+    e.preventDefault();
+    insertTable(v, rows, e.clipboardData!.getData("text/plain"));
+    return true;
+  }
   e.preventDefault();
   void addImageFromEditor(img, v, v.state.selection.main.head);
   return true;
 }
 
+/** Paquetes cargados en el proyecto (para decidir columnas S de siunitx y booktabs). */
+const projectUses = (pkg: string) =>
+  files.some(
+    (f) =>
+      f.text !== undefined &&
+      // sin comentarios: un "% \usepackage{booktabs}" no cuenta
+      new RegExp(`\\\\usepackage(\\[[^\\]]*\\])?\\{[^}]*\\b${pkg}\\b`).test(f.text.replace(/(^|[^\\])%.*$/gm, "$1")),
+  );
+
+/**
+ * Inserta una tabla. Si `plain` se da (pegado), primero se pega el texto tal cual y después
+ * se convierte en un paso aparte del historial: Ctrl+Z deja el texto original.
+ */
+function insertTable(v: EditorView, rows: Rows, plain?: string) {
+  const { state } = v;
+  const r = state.selection.main;
+  const siunitx = projectUses("siunitx");
+  const booktabs = projectUses("booktabs");
+  // dentro de una tabla que ya existe: solo se añaden las filas
+  const inTable = openEnvsAt(state.doc.toString(), r.from).some((e) => /^(tabular\*?|tabularx|longtable|array)$/.test(e.name));
+  const line = state.doc.lineAt(r.from);
+  const indent = /^\s*/.exec(line.text)![0];
+  let tex = toLatexTable(rows, { siunitx, booktabs, wrap: !inTable, indent: inTable ? indent + "  " : "" });
+  if (inTable) tex = tex.replace(/^\s+/, "");
+  if (plain !== undefined) {
+    // el editor guarda los saltos como \n: con \r\n (Excel en Windows) la longitud no cuadraría
+    const pasted = plain.replace(/\r\n?/g, "\n");
+    v.dispatch({ changes: { from: r.from, to: r.to, insert: pasted }, userEvent: "input.paste", scrollIntoView: true });
+    v.dispatch({
+      changes: { from: r.from, to: r.from + pasted.length, insert: tex },
+      selection: { anchor: r.from + tex.length },
+      annotations: isolateHistory.of("full"),
+      userEvent: "input.paste.table",
+    });
+  } else {
+    v.dispatch({ changes: { from: r.from, to: r.to, insert: tex }, selection: { anchor: r.from + tex.length }, userEvent: "input.paste.table" });
+  }
+  const falta = [!booktabs && "booktabs", !siunitx && rows.some((row) => row.some((c) => /\d/.test(c))) && "siunitx (alineación decimal)"].filter(Boolean);
+  setStatus(
+    `Tabla de ${rows.length}×${rows[0].length} insertada${plain !== undefined ? " (Ctrl+Z la deja como texto)" : ""}.` +
+      (falta.length ? ` Sugerencia: añade \\usepackage{${falta.map((x) => String(x).split(" ")[0]).join(",")}} al preámbulo.` : ""),
+  );
+}
+
 function onEditorDrop(e: DragEvent, v: EditorView) {
   const dropped = [...(e.dataTransfer?.files ?? [])];
+  const csv = dropped.find((f) => /\.(csv|tsv)$/i.test(f.name));
+  if (csv && isTexLike(current)) {
+    // un .csv soltado en el editor se convierte en tabla en esa línea
+    e.preventDefault();
+    const pos = v.posAtCoords({ x: e.clientX, y: e.clientY }) ?? v.state.selection.main.head;
+    v.dispatch({ selection: { anchor: v.state.doc.lineAt(pos).from } });
+    void csv.arrayBuffer().then((buf) => {
+      const rows = parseDelimited(decodeText(new Uint8Array(buf)).text); // UTF-8 o Latin-1 (Excel)
+      if (rows) insertTable(v, rows);
+      else setStatus(`${csv.name} no parece una tabla.`, "error");
+    });
+    return true;
+  }
   const img = dropped.find((f) => f.type.startsWith("image/"));
   if (!img) {
     if (!dropped.length) return false; // texto arrastrado: lo maneja el editor
@@ -728,7 +835,7 @@ async function uploadFiles(list: File[], dir = "") {
       continue;
     }
     const path = (dir ? dir + "/" : "") + rel;
-    await putFile(isTextPath(path) ? { path, text: await file.text() } : { path, data: new Uint8Array(await file.arrayBuffer()) });
+    await putFile(await readUpload(file, path));
   }
   renderTree();
   scheduleIndex();
@@ -929,11 +1036,24 @@ function renderOutline() {
 
 let idxTimer: number | undefined;
 function scheduleIndex() {
+  filesVersion++;
   window.clearTimeout(idxTimer);
   idxTimer = window.setTimeout(() => {
     $("sb-words").textContent = `${wordCount(files, meta.main).toLocaleString("es")} palabras`;
+    runProjectChecks();
     if (!document.querySelector<HTMLElement>('[data-panel="outline"]')!.hidden) renderOutline();
   }, 600);
+}
+
+/** Revisa el proyecto y actualiza la lista solo si cambió algo. */
+let lastChecks = "";
+function runProjectChecks() {
+  const next = settings.projectChecks ? checkProject(files) : [];
+  const key = JSON.stringify(next);
+  if (key === lastChecks) return;
+  lastChecks = key;
+  checkProblems = next;
+  renderProblems();
 }
 
 let searchTimer: number | undefined;
@@ -1111,9 +1231,10 @@ $("download").addEventListener("click", (e) => {
 // ---------- Problemas y registro ----------
 
 function renderProblems() {
-  const e = problems.filter((p) => p.level === "error").length;
-  const w = problems.filter((p) => p.level === "warning").length;
-  const b = problems.filter((p) => p.level === "info").length;
+  const list = allProblems();
+  const e = list.filter((p) => p.level === "error").length;
+  const w = list.filter((p) => p.level === "warning").length;
+  const b = list.filter((p) => p.level === "info").length;
   const parts = [];
   if (e) parts.push(`${e} error${e > 1 ? "es" : ""}`);
   if (w) parts.push(`${w} aviso${w > 1 ? "s" : ""}`);
@@ -1122,14 +1243,14 @@ function renderProblems() {
   $("problems").dataset.kind = e ? "error" : w ? "warning" : "";
   const ul = $("problem-list");
   ul.replaceChildren(
-    ...(problems.length
-      ? problems.map((p) => {
+    ...(list.length
+      ? list.map((p) => {
           const btn = el(
             "button",
             { type: "button", cls: `problem ${p.level}` },
             el("span", { cls: "lvl" }, p.level === "error" ? "Error" : p.level === "warning" ? "Aviso" : "Formato"),
             el("span", { cls: "msg" }, p.message),
-            el("span", { cls: "where" }, p.file ? `${p.file}${p.line ? ":" + p.line : ""}` : ""),
+            el("span", { cls: "where" }, (p.file ? `${p.file}${p.line ? ":" + p.line : ""}` : "") + (p.source ? ` · revisión del ${p.source.toLowerCase()}` : "")),
           );
           if (p.file) btn.onclick = () => openFile(p.file!, p.line ?? undefined);
           else btn.disabled = true;
@@ -1231,7 +1352,11 @@ async function compile(auto = false) {
       }).finally(() => (nativeJob = null));
     } else {
       r = await compileProject(
-        files.map((f) => ({ path: f.path, content: f.text ?? f.data ?? new Uint8Array() })),
+        // los archivos en Latin-1 se compilan con sus bytes originales (inputenc latin1)
+        files.map((f) => ({
+          path: f.path,
+          content: f.text !== undefined ? (f.encoding ? encodeText(f.text, f.encoding) : f.text) : (f.data ?? new Uint8Array()),
+        })),
         // la compilación automática usa el modo rápido (una pasada) si está activado
         { main: pMain, engine: pEngine, cacheKey: pid, draft },
       );
@@ -1535,6 +1660,8 @@ async function openProject(id: string) {
   if (!findFile(meta.main)) meta.main = guessMain(files);
   states.clear();
   problems = [];
+  checkProblems = []; // los del proyecto anterior apuntarían a otros archivos
+  lastChecks = "";
   sync = null;
   lastPdf = null;
   lastPrint = "";
@@ -1682,7 +1809,7 @@ $<HTMLInputElement>("import-input").onchange = async (e) => {
   input.value = "";
   if (!list.length) return;
   const fs: StoredFile[] = [];
-  for (const f of list) fs.push(isTextPath(f.name) ? { path: f.name, text: await f.text() } : { path: f.name, data: new Uint8Array(await f.arrayBuffer()) });
+  for (const f of list) fs.push(await readUpload(f, f.name));
   const main = guessMain(fs);
   $<HTMLDialogElement>("projects-dlg").close();
   await createProject(basename(main).replace(/\.tex$/, "") || "Proyecto importado", fs);
@@ -1702,6 +1829,7 @@ function openSettings() {
   $<HTMLInputElement>("set-toolbar").checked = settings.toolbar;
   $<HTMLInputElement>("set-draft").checked = settings.draft;
   $<HTMLSelectElement>("set-spell-lang").value = settings.spellLang;
+  $<HTMLInputElement>("set-checks").checked = settings.projectChecks;
   $<HTMLSelectElement>("set-compiler").value = settings.compiler;
   $<HTMLInputElement>("set-shell").checked = settings.shellEscapeProjects.includes(meta.id);
   void refreshCompilerInfo();
@@ -1788,6 +1916,11 @@ function updateCompilerBadge() {
   $("sb-engine").textContent = desktop && settings.compiler === "system" ? "TeX del sistema" : "";
 }
 updateCompilerBadge();
+$("set-checks").onchange = (e) => {
+  settings.projectChecks = (e.target as HTMLInputElement).checked;
+  saveSettings();
+  runProjectChecks();
+};
 $("set-spell-lang").onchange = (e) => {
   settings.spellLang = (e.target as HTMLSelectElement).value;
   saveSettings();
@@ -1953,7 +2086,8 @@ let watching = false;
 const normEol = (s: string) => s.replace(/\r\n?/g, "\n");
 
 const sameContent = (a: StoredFile, b: StoredFile) => {
-  if (a.text !== undefined || b.text !== undefined) return a.text !== undefined && b.text !== undefined && normEol(a.text) === normEol(b.text);
+  if (a.text !== undefined || b.text !== undefined)
+    return a.text !== undefined && b.text !== undefined && (a.encoding ?? "") === (b.encoding ?? "") && normEol(a.text) === normEol(b.text);
   const x = a.data ?? new Uint8Array();
   const y = b.data ?? new Uint8Array();
   return x.length === y.length && x.every((v, i) => v === y[i]);
@@ -2050,6 +2184,7 @@ function applyExternal(disk: StoredFile) {
   }
   local.text = disk.text;
   local.data = disk.data;
+  local.encoding = disk.encoding;
   if (current === disk.path && disk.text !== undefined) {
     // sustituye el contenido conservando la posición del cursor y el deshacer
     const head = Math.min(view.state.selection.main.head, disk.text.length);
