@@ -53,7 +53,16 @@ function translate(msg: string): string {
   return msg;
 }
 
-const FILE_RE = /\(((?:\.{0,2}\/|[A-Za-z]:|\/)?[^\s()"{}]+?\.(?:tex|sty|cls|bbl|aux|def|cfg|clo|ltx|fd|toc|lof|lot|out|ind|gls|nav|snm|vrb))(?=[\s)]|$)/g;
+const EXTS = "tex|sty|cls|bbl|aux|def|cfg|clo|ltx|fd|toc|lof|lot|out|ind|gls|nav|snm|vrb";
+// (ruta) o, como hace MiKTeX con rutas que tienen espacios o paréntesis, ("ruta").
+// Admite barras de Windows (C:\…\main.tex).
+const FILE_RE = new RegExp(
+  `\\(("[^"]+?\\.(?:${EXTS})"|(?:\\.{0,2}[\\/\\\\]|[A-Za-z]:|[\\/\\\\])?[^\\s()"{}]+?\\.(?:${EXTS}))(?=[\\s)]|$)`,
+  "g",
+);
+
+/** Ruta del registro → forma comparable: sin comillas ni \r y con barras normales. */
+const normPath = (raw: string) => raw.replace(/^"|"$/g, "").replace(/\r$/, "").replace(/\\/g, "/").replace(/\/\.\//g, "/").replace(/^\.\//, "");
 
 export function parseLog(log: string, knownFiles: string[], mainFile = "main.tex"): Problem[] {
   const lines = unwrap(log);
@@ -63,7 +72,7 @@ export function parseLog(log: string, knownFiles: string[], mainFile = "main.tex
 
   const resolve = (raw: string | undefined): string | null => {
     if (!raw) return null;
-    const clean = raw.replace(/^\.\//, "");
+    const clean = normPath(raw);
     const hit = knownFiles.find(
       (k) => clean === k || clean.endsWith("/" + k) || k.endsWith("/" + clean),
     );
@@ -163,6 +172,7 @@ export function parseLog(log: string, knownFiles: string[], mainFile = "main.tex
       if (ch === "(") {
         const o = opens.find((x) => x.idx === k);
         stack.push(o ? o.file : "");
+        // salta la ruta completa: sus paréntesis internos («Mecánica (prueba)») no cuentan
         if (o) k = o.idx + o.file.length;
       } else if (ch === ")") {
         stack.pop();

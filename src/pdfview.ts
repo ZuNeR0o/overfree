@@ -70,7 +70,11 @@ export class PdfViewer {
     return this.pages.length;
   }
 
+  /** Sube con cada load()/clear(): una carga que termina tarde y ya no es la última se descarta. */
+  private loadGen = 0;
+
   async load(data: Uint8Array) {
+    const gen = ++this.loadGen;
     // conserva la posición relativa al reemplazar el documento
     const prevPage = this.currentPage;
     const prevEl = this.pages[prevPage - 1]?.el;
@@ -82,6 +86,10 @@ export class PdfViewer {
     for (let i = 1; i <= doc.numPages; i++) {
       const vp = (await doc.getPage(i)).getViewport({ scale: 1 });
       sizes.push({ w: vp.width, h: vp.height });
+    }
+    if (gen !== this.loadGen) {
+      void task.destroy(); // llegó otro PDF (o se cambió de proyecto) mientras cargaba
+      return;
     }
     const old = this.task;
     this.doc = doc;
@@ -337,6 +345,7 @@ export class PdfViewer {
   }
 
   clear() {
+    this.loadGen++;
     this.io.disconnect();
     this.root.replaceChildren();
     this.pages = [];

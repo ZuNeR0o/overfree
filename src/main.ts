@@ -17,7 +17,7 @@ import { createGitPanel } from "./gitpanel";
 import type { PdfMessage } from "./pdfwindow";
 import { tags as t } from "@lezer/highlight";
 
-import { clearAuxCache, compileProject, engineReady, exportAux, importAux, onEngineProgress, warmUp, type Engine } from "./latex";
+import { cancelCompile, clearAuxCache, compileProject, engineReady, exportAux, importAux, onEngineProgress, warmUp, type Engine } from "./latex";
 import { backend, desktop, isTextPath, migrateLegacy, newId, type ProjectMeta, type Snapshot, type StoredFile } from "./store";
 import { parseLog, type Problem } from "./logparse";
 import { parseSynctex, forward, inverse, type SyncData } from "./synctex";
@@ -116,11 +116,23 @@ function download(name: string, data: Uint8Array | Blob, type = "application/oct
 const fmtDate = (ms: number) =>
   new Date(ms).toLocaleString("es", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
 
+const WIN_RESERVED = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(\..*)?$/i;
+
 function cleanPath(raw: string | null | undefined) {
   const name = raw?.trim().replace(/\\/g, "/").replace(/^\/+|\/+$/g, "").replace(/\/{2,}/g, "/");
   if (!name) return null;
-  if (name.split("/").some((s) => s === ".." || s === ".")) {
-    alert("Nombre no válido.");
+  const segs = name.split("/");
+  const bad = segs.find(
+    (s) =>
+      s === ".." ||
+      s === "." ||
+      /[<>:"|?*\u0000-\u001f]/.test(s) || // no válidos en Windows
+      /[. ]$/.test(s) || // Windows quita puntos y espacios finales
+      WIN_RESERVED.test(s) ||
+      /^\.(git|folio)$/i.test(s), // carpetas internas
+  );
+  if (bad !== undefined) {
+    alert(`Nombre no válido: «${bad}». No uses < > : " | ? * ni nombres reservados de Windows.`);
     return null;
   }
   return name;
@@ -526,13 +538,23 @@ function showBinary(f: StoredFile) {
 
 // Pegar o soltar imágenes en el editor: se guardan en figuras/ y se inserta el código.
 async function addImageFromEditor(file: File, view: EditorView, pos: number) {
-  const ext = (file.type.split("/")[1] || "png").replace("jpeg", "jpg").replace("svg+xml", "svg");
-  const base = file.name && file.name !== "image.png" ? file.name.replace(/\s+/g, "-") : `imagen-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-")}.${ext}`;
+  // solo letras y números (image/x-icon daría «x-icon» y el bucle de abajo no terminaría)
+  const ext = ((file.type.split("/")[1] || "png").replace("jpeg", "jpg").replace("svg+xml", "svg").replace(/^x-/, "").replace(/\W/g, "")) || "png";
+  let base = file.name && file.name !== "image.png" ? file.name.replace(/\s+/g, "-") : `imagen-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-")}.${ext}`;
+  // sin extensión, el bucle de nombres únicos de abajo no terminaría nunca
+  if (!/\.\w+$/.test(base)) base = `${base.replace(/\.+$/, "") || "imagen"}.${ext}`;
+  const pid = meta.id;
+  const editing = current;
+  const docBefore = view.state.doc;
+  const data = new Uint8Array(await file.arrayBuffer());
+  if (pid !== meta.id || editing !== current) return; // cambiaste de proyecto o de archivo
   let path = `figuras/${base}`;
-  for (let i = 2; findFile(path); i++) path = `figuras/${base.replace(/(\.\w+)$/, `-${i}$1`)}`;
-  const f: StoredFile = { path, data: new Uint8Array(await file.arrayBuffer()) };
+  for (let i = 2; findFile(path) && i < 10_000; i++) path = `figuras/${base.replace(/(\.[^./]+)$/, `-${i}$1`)}`;
+  const f: StoredFile = { path, data };
   files.push(f);
   persist(f, 0);
+  // si el documento cambió mientras se leía la imagen, se inserta donde está el cursor
+  if (view.state.doc !== docBefore) pos = view.state.doc.lineAt(view.state.selection.main.head).from;
   const code = `\\begin{figure}[h]\n  \\centering\n  \\includegraphics[width=0.8\\linewidth]{${path}}\n  \\caption{}\n  \\label{fig:${basename(path).replace(/\.\w+$/, "")}}\n\\end{figure}\n`;
   view.dispatch({ changes: { from: pos, insert: code }, selection: { anchor: pos + code.indexOf("\\caption{") + 9 } });
   renderTree();
@@ -548,8 +570,15 @@ function onPaste(e: ClipboardEvent, v: EditorView) {
 }
 
 function onEditorDrop(e: DragEvent, v: EditorView) {
-  const img = [...(e.dataTransfer?.files ?? [])].find((f) => f.type.startsWith("image/"));
-  if (!img) return false;
+  const dropped = [...(e.dataTransfer?.files ?? [])];
+  const img = dropped.find((f) => f.type.startsWith("image/"));
+  if (!img) {
+    if (!dropped.length) return false; // texto arrastrado: lo maneja el editor
+    // otros archivos (PDF, .bib…): al proyecto, no como texto dentro del documento
+    e.preventDefault();
+    void uploadFiles(dropped);
+    return true;
+  }
   e.preventDefault();
   const pos = v.posAtCoords({ x: e.clientX, y: e.clientY }) ?? v.state.selection.main.head;
   void addImageFromEditor(img, v, v.state.doc.lineAt(pos).from);
@@ -665,6 +694,16 @@ async function handleDrop(e: DragEvent, dir: string) {
   }
 }
 
+// Archivos soltados en cualquier otra parte de la ventana: se ignoran (si no, el visor
+// navegaría al archivo y sacaría al usuario de Folio). Va en fase de burbuja, así que el
+// árbol y el editor ya los habrán procesado si les correspondía.
+window.addEventListener("dragover", (e) => {
+  if (e.dataTransfer?.types.includes("Files")) e.preventDefault();
+});
+window.addEventListener("drop", (e) => {
+  if (e.dataTransfer?.types.includes("Files")) e.preventDefault();
+});
+
 const side = $("side");
 side.addEventListener("dragover", (e) => {
   e.preventDefault();
@@ -726,28 +765,70 @@ async function newFolder() {
   renderTree();
 }
 
-async function movePath(from: string, to: string, isDir: boolean) {
+/** Windows (NTFS) no distingue mayúsculas en los nombres de archivo; Linux y el navegador sí. */
+const caseInsensitiveFS = /win/i.test(navigator.platform || navigator.userAgent);
+const RENAME_TMP = ".folio-renombrando";
+
+async function movePath(from: string, to: string, isDir: boolean): Promise<boolean> {
+  // carpeta que solo cambia de mayúsculas en Windows: se pasa por un nombre temporal
+  if (isDir && caseInsensitiveFS && from !== to && from.toLowerCase() === to.toLowerCase()) {
+    const tmp = from + RENAME_TMP;
+    if (!(await movePath(from, tmp, true))) return false; // si el primer paso falla, no se sigue
+    return movePath(tmp, to, true);
+  }
   const moves: [StoredFile, string][] = [];
   for (const f of files) {
     if (isDir ? f.path.startsWith(from + "/") : f.path === from) moves.push([f, isDir ? to + f.path.slice(from.length) : to]);
   }
-  for (const [, np] of moves) if (findFile(np)) return void alert(`Ya existe ${np}.`);
+  const moving = new Set(moves.map(([f]) => f));
+  const same = (a: string, b: string) => (caseInsensitiveFS ? a.toLowerCase() === b.toLowerCase() : a === b);
+  for (const [, np] of moves) {
+    const other = files.find((x) => !moving.has(x) && same(x.path, np));
+    if (other) {
+      alert(`Ya existe ${other.path}.`);
+      return false;
+    }
+  }
   await flushPending();
+  let ok = true;
   for (const [f, np] of moves) {
     const op = f.path;
-    await backend.deleteFile(meta.id, op);
+    // primero se escribe el destino y solo después se borra el original: si algo falla,
+    // el archivo sigue donde estaba (antes se borraba primero y podía perderse)
+    try {
+      if (caseInsensitiveFS && op !== np && op.toLowerCase() === np.toLowerCase()) {
+        // solo cambian mayúsculas: en Windows es el mismo archivo, se pasa por un nombre temporal
+        const tmp = op + RENAME_TMP;
+        await backend.writeFile(meta.id, { ...f, path: tmp });
+        await backend.deleteFile(meta.id, op);
+        try {
+          await backend.writeFile(meta.id, { ...f, path: np });
+        } catch (e) {
+          await backend.writeFile(meta.id, { ...f, path: op }).catch(() => undefined); // restaura
+          throw e;
+        }
+        await backend.deleteFile(meta.id, tmp);
+      } else {
+        await backend.writeFile(meta.id, { ...f, path: np });
+        await backend.deleteFile(meta.id, op);
+      }
+    } catch (e) {
+      alert(`No se pudo mover ${op}: ${e instanceof Error ? e.message : e}`);
+      ok = false;
+      break;
+    }
     f.path = np;
-    await backend.writeFile(meta.id, f);
     const st = states.get(op);
     states.delete(op);
     if (st) states.set(np, st);
     if (current === op) current = np;
     if (meta.main === op) meta.main = np;
   }
-  if (isDir) meta.folders = meta.folders.map((d) => (d === from || d.startsWith(from + "/") ? to + d.slice(from.length) : d));
+  if (isDir && ok) meta.folders = meta.folders.map((d) => (d === from || d.startsWith(from + "/") ? to + d.slice(from.length) : d));
   touch();
   if (current) openFile(current);
   else renderTree();
+  return ok;
 }
 
 async function renamePath(path: string, isDir: boolean) {
@@ -1082,6 +1163,23 @@ document.querySelectorAll<HTMLButtonElement>("[data-log]").forEach((b) => {
 
 let busy = false;
 let again = false;
+/** La compilación pendiente la pediste tú (completa), no la automática (rápida). */
+let againFull = false;
+let cancelling = false;
+/** Identificador de la compilación enviada al TeX del sistema (null si no hay ninguna). */
+let nativeJob: string | null = null;
+
+/** Detiene la compilación en curso (motor integrado o TeX del sistema). */
+function cancelCompilation() {
+  if (!busy || cancelling) return;
+  cancelling = true;
+  again = false;
+  againFull = false;
+  window.clearTimeout(autoTimer);
+  setStatus("Cancelando…");
+  if (nativeJob) void desktop?.cancelNative(nativeJob).catch(() => undefined);
+  else cancelCompile(); // motor integrado (o aún no se envió nada: compile() lo detecta)
+}
 
 onEngineProgress((pct) => {
   if (pct < 100) $("sb-engine").textContent = `Cargando motor ${Math.round(pct)} %`;
@@ -1099,32 +1197,50 @@ $("clear-cache").onclick = async () => {
 async function compile(auto = false) {
   if (busy) {
     again = true; // se compila otra vez al terminar
+    if (!auto) againFull = true;
     return;
   }
   busy = true;
   window.clearTimeout(autoTimer);
-  $<HTMLButtonElement>("compile").disabled = true;
-  $("compile-label").textContent = "Compilando…";
-  setStatus(engineReady() ? "" : "La primera vez se carga el motor y puede tardar.");
+  // mientras compila, el mismo botón sirve para cancelar
+  const btn = $<HTMLButtonElement>("compile");
+  btn.classList.add("cancel");
+  btn.title = "Cancelar la compilación (Esc)";
+  $("compile-label").textContent = "Cancelar";
+  setStatus(engineReady() ? "Compilando…" : "Compilando… la primera vez se carga el motor y puede tardar.");
   const t0 = performance.now();
+  const pid = meta.id; // si cambias de proyecto mientras compila, el resultado es de este
+  const pMain = meta.main;
+  const pEngine = meta.engine;
   try {
     if (current && findFile(current)?.text !== undefined) states.set(current, view.state);
     const draft = auto && settings.draft;
     const useSystem = !!desktop && settings.compiler === "system";
-    if (useSystem) await flushPending(); // el TeX del sistema lee los archivos del disco
-    const r = useSystem
-      ? await desktop!.compileNative(meta.id, {
-          main: meta.main,
-          engine: meta.engine,
-          // solo si lo permitiste para ESTE proyecto, y nunca en compilaciones automáticas
-          shellEscape: !auto && settings.shellEscapeProjects.includes(meta.id),
-          draft,
-        })
-      : await compileProject(
-          files.map((f) => ({ path: f.path, content: f.text ?? f.data ?? new Uint8Array() })),
-          // la compilación automática usa el modo rápido (una pasada) si está activado
-          { main: meta.main, engine: meta.engine, cacheKey: meta.id, draft },
-        );
+    let r: Awaited<ReturnType<typeof compileProject>>;
+    if (useSystem) {
+      await flushPending(); // el TeX del sistema lee los archivos del disco
+      if (cancelling || pid !== meta.id) throw new Error("Compilación cancelada");
+      nativeJob = newId();
+      r = await desktop!.compileNative(pid, {
+        job: nativeJob,
+        main: pMain,
+        engine: pEngine,
+        // solo si lo permitiste para ESTE proyecto, y nunca en compilaciones automáticas
+        shellEscape: !auto && settings.shellEscapeProjects.includes(pid),
+        draft,
+      }).finally(() => (nativeJob = null));
+    } else {
+      r = await compileProject(
+        files.map((f) => ({ path: f.path, content: f.text ?? f.data ?? new Uint8Array() })),
+        // la compilación automática usa el modo rápido (una pasada) si está activado
+        { main: pMain, engine: pEngine, cacheKey: pid, draft },
+      );
+    }
+    if (pid !== meta.id) {
+      // se guarda en su proyecto, pero no se muestra en el que tienes abierto ahora
+      if (r.pdf) void backend.saveOutput(pid, { pdf: r.pdf, synctex: r.synctex, time: Date.now(), aux: { main: pMain, engine: pEngine, files: exportAux(pid, pMain, pEngine) } }).catch(() => undefined);
+      return;
+    }
     $("log").textContent = r.log;
     const known = files.map((f) => f.path);
     problems = parseLog(r.log, known, meta.main);
@@ -1133,7 +1249,10 @@ async function compile(auto = false) {
     }
     renderProblems();
     if (r.pdf) await showPdf(r.pdf);
-    sync = r.synctex ? await parseSynctex(r.synctex, known).catch(() => null) : sync;
+    if (pid !== meta.id) return; // cambiaste de proyecto mientras se cargaba el PDF
+    const newSync = r.synctex ? await parseSynctex(r.synctex, known).catch(() => null) : null;
+    if (pid !== meta.id) return; // cambiaste de proyecto mientras se mostraba
+    if (newSync) sync = newSync;
     if (r.pdf)
       void backend
         .saveOutput(meta.id, {
@@ -1158,23 +1277,45 @@ async function compile(auto = false) {
       if (!auto) setProblemsOpen(true);
     }
   } catch (error) {
-    $("log").textContent = error instanceof Error ? error.stack ?? error.message : String(error);
-    problems = [{ level: "error", message: "No se pudo ejecutar el motor LaTeX. Revisa el registro completo.", file: null, line: null }];
-    renderProblems();
-    setStatus("No se pudo compilar.", "error");
-    setProblemsOpen(true);
+    if (pid !== meta.id) {
+      // era de otro proyecto: no se mezcla con el que tienes abierto
+    } else if (cancelling) {
+      // el PDF y los problemas anteriores se conservan
+      setStatus(`Compilación cancelada (${((performance.now() - t0) / 1000).toFixed(1)} s).`);
+    } else {
+      $("log").textContent = error instanceof Error ? error.stack ?? error.message : String(error);
+      problems = [{ level: "error", message: "No se pudo ejecutar el motor LaTeX. Revisa el registro completo.", file: null, line: null }];
+      renderProblems();
+      setStatus("No se pudo compilar.", "error");
+      setProblemsOpen(true);
+    }
   } finally {
     busy = false;
-    $<HTMLButtonElement>("compile").disabled = false;
+    cancelling = false;
+    nativeJob = null;
+    const btn = $<HTMLButtonElement>("compile");
+    btn.classList.remove("cancel");
+    btn.title = "Compilar (Ctrl+Enter o Ctrl+S)";
     $("compile-label").textContent = "Compilar";
     if (again) {
+      const full = againFull;
       again = false;
-      void compile(true);
+      againFull = false;
+      void compile(!full); // si pediste una completa, se hace completa (no en modo rápido)
     }
   }
 }
 
-$("compile").onclick = () => void compile();
+$("compile").onclick = () => (busy ? cancelCompilation() : void compile());
+// Esc cancela una compilación en curso (si no hay un diálogo o sugerencia abiertos)
+window.addEventListener("keydown", (e) => {
+  if (e.key !== "Escape" || !busy || e.defaultPrevented) return;
+  // Esc también cierra búsquedas, paneles y sugerencias: en esos casos no cancela
+  const busyUi = document.querySelector("dialog[open], .cm-tooltip-autocomplete, .cm-panels .cm-panel");
+  const inField = (e.target as HTMLElement | null)?.closest?.("input, textarea, select");
+  if (busyUi || inField || !$("pdf-find").hidden || !$("symbol-palette").hidden) return;
+  cancelCompilation();
+});
 
 const engineSelect = $<HTMLSelectElement>("engine");
 engineSelect.onchange = () => {

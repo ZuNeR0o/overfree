@@ -5,6 +5,9 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{mpsc, Mutex};
+use std::time::Duration;
 
 use base64::Engine as _;
 use serde_json::{json, Value};
@@ -64,14 +67,96 @@ struct Run {
     log: String,
 }
 
+// ---------- Cancelación ----------
+
+const CANCEL_MSG: &str = "Compilación cancelada";
+/// Se activa al pedir cancelar; cada paso lo comprueba antes y después de ejecutarse.
+static CANCELLED: AtomicBool = AtomicBool::new(false);
+/// Trabajo en curso y cancelación recibida para un trabajo que aún no empezó. Cada
+/// compilación lleva un identificador único: una cancelación tardía o adelantada solo
+/// afecta a la compilación que la pidió, nunca a la siguiente.
+static JOBS: Mutex<(Option<String>, Option<String>)> = Mutex::new((None, None));
+/// PID del programa de TeX que se está ejecutando ahora (para poder terminarlo).
+static RUNNING_PID: Mutex<Option<u32>> = Mutex::new(None);
+
+fn set_running(pid: Option<u32>) {
+    if let Ok(mut g) = RUNNING_PID.lock() {
+        *g = pid;
+    }
+}
+
+/// Detiene la compilación en curso: marca la cancelación y termina el proceso activo
+/// con sus hijos (MiKTeX puede lanzar otros, p. ej. al instalar paquetes).
+pub fn cancel(job: &str) {
+    let Ok(mut jobs) = JOBS.lock() else { return };
+    if jobs.0.as_deref() == Some(job) {
+        CANCELLED.store(true, Ordering::SeqCst);
+        drop(jobs);
+        if let Some(pid) = RUNNING_PID.lock().ok().and_then(|g| *g) {
+            kill_tree(pid);
+        }
+    } else {
+        jobs.1 = Some(job.to_string()); // aún no empezó: se cancelará al llegar
+    }
+}
+
+fn kill_tree(pid: u32) {
+    #[cfg(windows)]
+    {
+        let mut k = Command::new("taskkill");
+        k.args(["/PID", &pid.to_string(), "/T", "/F"]).stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null());
+        no_window(&mut k);
+        let _ = k.status();
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = Command::new("kill").args(["-9", &pid.to_string()]).status();
+    }
+}
+
 fn run(bin: &Path, tool: &str, args: &[&str], cwd: &Path, envs: &[(&str, &str)]) -> Res<Run> {
+    if CANCELLED.load(Ordering::SeqCst) {
+        return Err(CANCEL_MSG.into());
+    }
     let mut cmd = Command::new(bin.join(tool));
-    cmd.args(args).current_dir(cwd).stdin(Stdio::null());
+    cmd.args(args).current_dir(cwd).stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::piped());
     for (k, v) in envs {
         cmd.env(k, v);
     }
     no_window(&mut cmd);
-    let o = cmd.output().map_err(|e| format!("No se pudo ejecutar {tool}: {e}"))?;
+    let child = cmd.spawn().map_err(|e| format!("No se pudo ejecutar {tool}: {e}"))?;
+    let pid = child.id();
+    set_running(Some(pid));
+    // la cancelación pudo llegar justo entre spawn y set_running (cuando aún no había PID)
+    if CANCELLED.load(Ordering::SeqCst) {
+        kill_tree(child.id());
+    }
+    // Se espera en otro hilo: si se cancela, se responde al instante aunque algún proceso
+    // hijo siga con la salida abierta (wait_with_output esperaría a que la cierre).
+    let (tx, rx) = mpsc::channel();
+    std::thread::spawn(move || {
+        let _ = tx.send(child.wait_with_output());
+    });
+    let out = loop {
+        match rx.recv_timeout(Duration::from_millis(100)) {
+            Ok(out) => break out,
+            Err(mpsc::RecvTimeoutError::Timeout) if CANCELLED.load(Ordering::SeqCst) => {
+                kill_tree(pid); // por si cancel() no llegó a verlo (lo leyó ya sin PID)
+                set_running(None);
+                return Err(CANCEL_MSG.into());
+            }
+            Err(mpsc::RecvTimeoutError::Timeout) => continue,
+            Err(mpsc::RecvTimeoutError::Disconnected) => {
+                set_running(None);
+                return Err(format!("No se pudo esperar a {tool}"));
+            }
+        }
+    };
+    set_running(None);
+    if CANCELLED.load(Ordering::SeqCst) {
+        return Err(CANCEL_MSG.into());
+    }
+    let o = out.map_err(|e| format!("No se pudo ejecutar {tool}: {e}"))?;
     let mut log = format!("$ {tool} {}\n", args.join(" "));
     log += &String::from_utf8_lossy(&o.stdout);
     log += &String::from_utf8_lossy(&o.stderr);
@@ -104,7 +189,25 @@ pub fn clean(dir: &Path) -> Res<()> {
     Ok(())
 }
 
-pub fn compile(dir: &Path, main: &str, engine: &str, shell_escape: bool, draft: bool) -> Res<Value> {
+pub fn compile(job: &str, dir: &Path, main: &str, engine: &str, shell_escape: bool, draft: bool) -> Res<Value> {
+    {
+        let Ok(mut jobs) = JOBS.lock() else { return Err("Estado interno no disponible".into()) };
+        if jobs.1.as_deref() == Some(job) {
+            jobs.1 = None;
+            return Err(CANCEL_MSG.into()); // se canceló antes de empezar
+        }
+        jobs.0 = Some(job.to_string());
+        CANCELLED.store(false, Ordering::SeqCst);
+    }
+    let result = compile_inner(dir, main, engine, shell_escape, draft);
+    if let Ok(mut jobs) = JOBS.lock() {
+        jobs.0 = None;
+        CANCELLED.store(false, Ordering::SeqCst);
+    }
+    result
+}
+
+fn compile_inner(dir: &Path, main: &str, engine: &str, shell_escape: bool, draft: bool) -> Res<Value> {
     let bin = tex_bin().ok_or("No se encontró TeX en el equipo (MiKTeX o TeX Live).")?;
     let exe = match engine {
         "xelatex" => "xelatex",

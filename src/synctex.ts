@@ -31,7 +31,8 @@ export async function parseSynctex(gz: Uint8Array, knownFiles: string[]): Promis
   let page = 0;
 
   const resolve = (raw: string) => {
-    const clean = raw.replace(/\/\.\//g, "/").replace(/^\.\//, "");
+    // el TeX del sistema en Windows escribe C:\…\cap\intro.tex y termina las líneas en \r\n
+    const clean = raw.replace(/\r$/, "").replace(/\\/g, "/").replace(/\/\.\//g, "/").replace(/^\.\//, "");
     return (
       knownFiles.find((k) => clean === k || clean.endsWith("/" + k)) ?? clean
     );
@@ -41,7 +42,8 @@ export async function parseSynctex(gz: Uint8Array, knownFiles: string[]): Promis
   let scale = 1;
   const conv = () => (scale = (unit * mag) / 1000 / 65536 * (72 / 72.27));
 
-  for (const line of text.split("\n")) {
+  // split por \n y sin el \r final: con \r\n (TeX del sistema en Windows), "Input:…$" no coincidía
+  for (const line of text.split("\n").map((l) => l.replace(/\r$/, ""))) {
     if (!line) continue;
     const c = line[0];
     if (c === "I" && line.startsWith("Input:")) {

@@ -278,7 +278,7 @@ class DesktopBackend implements Backend {
   nativeInfo() {
     return this.json<{ available: boolean; version?: string; path?: string; miktex?: boolean }>("GET", "/native");
   }
-  async compileNative(id: string, opts: { main: string; engine: string; shellEscape: boolean; draft: boolean }) {
+  async compileNative(id: string, opts: { job: string; main: string; engine: string; shellEscape: boolean; draft: boolean }) {
     const r = await this.json<{ success: boolean; pdf: string | null; synctex: string | null; log: string }>(
       "POST",
       `${this.p(id)}/native/compile`,
@@ -289,6 +289,10 @@ class DesktopBackend implements Backend {
   }
   async cleanNative(id: string) {
     await this.call("POST", `${this.p(id)}/native/clean`);
+  }
+  /** Detiene la compilación con el TeX del sistema que tenga ese identificador. */
+  async cancelNative(job: string) {
+    await this.call("POST", "/native-cancel", undefined, { job });
   }
   /** Abre una ventana nativa adicional (p. ej. el PDF en otro monitor). */
   async openWindow(page: string) {

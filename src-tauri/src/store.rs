@@ -235,13 +235,13 @@ impl Store {
                 let path = ent.path();
                 let Ok(ft) = ent.file_type() else { continue };
                 if ft.is_dir() {
-                    if name != META_DIR && name != ".git" && name != "node_modules" {
+                    if name != META_DIR && name != ".git" && name != "node_modules" && !name.ends_with(".folio-renombrando") {
                         stack.push(path);
                     }
                     continue;
                 }
                 // los archivos temporales de Drive/Office y los nuestros (.tmp) se ignoran
-                if !ft.is_file() || is_artifact(&name) || name.ends_with(".tmp") || name.starts_with("~$") || name == "desktop.ini" {
+                if !ft.is_file() || is_artifact(&name) || name.ends_with(".tmp") || name.ends_with(".folio-renombrando") || name.starts_with("~$") || name == "desktop.ini" {
                     continue;
                 }
                 let Ok(meta) = ent.metadata() else { continue };

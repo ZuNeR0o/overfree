@@ -82,29 +82,23 @@ pub fn run() {
                 serde_json::to_string(&token)?,
                 serde_json::to_string(&format!("{origin}/api"))?
             );
-            // Al cambiar de versión se vacía la caché del visor una vez, para que no use
-            // archivos de la versión anterior (las primeras versiones los marcaban inmutables).
-            let version = app.package_info().version.to_string();
-            let marker = data.join("webview-version.txt");
-            let stale = std::fs::read_to_string(&marker).map(|v| v.trim() != version).unwrap_or(true);
-
+            // Antes se vaciaba aquí la caché del visor al cambiar de versión, pero eso también
+            // borraba localStorage (tus ajustes). Ya no hace falta: desde la 0.1.1 el servidor
+            // revalida cada archivo con ETag, así que nunca se usan archivos de otra versión.
             let url: tauri::Url = origin.parse()?;
-            let start = if stale { "about:blank".parse()? } else { url.clone() };
-            let win = WebviewWindowBuilder::new(app, "main", WebviewUrl::External(start))
+            let allowed = url.clone();
+            WebviewWindowBuilder::new(app, "main", WebviewUrl::External(url))
+                // La ventana nunca sale de Folio (p. ej. al soltar un archivo fuera del árbol):
+                // así initialization_script, que lleva el token de la API, no llega a otra página.
+                .on_navigation(move |u| u.scheme() == allowed.scheme() && u.host_str() == allowed.host_str() && u.port() == allowed.port())
                 .title("Folio")
                 .inner_size(1440.0, 900.0)
                 .min_inner_size(800.0, 500.0)
                 .initialization_script(&init)
+                // Sin esto, en Windows Tauri captura los archivos soltados sobre la ventana
+                // y la página nunca recibe el "drop": arrastrar imágenes al árbol no hacía nada.
+                .disable_drag_drop_handler()
                 .build()?;
-            if stale {
-                let _ = win.clear_all_browsing_data();
-                let _ = std::fs::write(&marker, &version);
-                // el borrado es asíncrono en WebView2: se navega un instante después
-                std::thread::spawn(move || {
-                    std::thread::sleep(std::time::Duration::from_millis(800));
-                    let _ = win.navigate(url);
-                });
-            }
             // solo en la versión instalada (en desarrollo no hay paquetes firmados)
             if !cfg!(debug_assertions) {
                 updater::check_in_background(handle.clone());

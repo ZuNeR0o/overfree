@@ -246,6 +246,11 @@ fn api(ctx: &Ctx, mut req: Request, path: &str, url: &str) {
         }
 
         (Method::Get, ["native"]) => json_resp(req, 200, &crate::native::detect()),
+        // va aparte de /projects/…: la compilación en curso ocupa otro hilo del servidor
+        (Method::Post, ["native-cancel"]) => {
+            crate::native::cancel(&query(url, "job").unwrap_or_default());
+            ok(req)
+        }
 
         (Method::Post, ["open-url"]) => {
             // solo enlaces web o de correo; nunca rutas ni otros protocolos
@@ -354,6 +359,7 @@ fn api(ctx: &Ctx, mut req: Request, path: &str, url: &str) {
                 let v: Value = serde_json::from_slice(&b).unwrap_or(Value::Null);
                 match *action {
                     "compile" => reply!(crate::native::compile(
+                        v["job"].as_str().unwrap_or(""),
                         &dir,
                         v["main"].as_str().unwrap_or("main.tex"),
                         v["engine"].as_str().unwrap_or("pdflatex"),

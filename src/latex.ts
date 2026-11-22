@@ -31,23 +31,30 @@ export const engineReady = () => ready;
 export const onEngineProgress = (cb: (pct: number) => void) => (progressCb = cb);
 
 function loadRunner(): Promise<Runner> {
-  runner ??= import("texlyre-busytex")
+  if (runner) return runner;
+  const p: Promise<Runner> = import("texlyre-busytex")
     .then(async ({ BusyTexRunner }) => {
       const r = new BusyTexRunner({
         busytexBasePath: BASE,
         preloadDataPackages: PRELOAD,
         catalogDataPackages: CATALOG,
-        onDownloadProgress: (p) => progressCb?.(p.percent),
+        onDownloadProgress: (pr) => progressCb?.(pr.percent),
       });
       await r.initialize(true); // true = Web Worker
+      if (runner !== p) {
+        // se canceló mientras cargaba: este motor ya no se usa
+        r.terminate();
+        throw new Error("Compilación cancelada");
+      }
       ready = true;
       return r;
     })
     .catch((error) => {
-      runner = null; // permite reintentar
+      if (runner === p) runner = null; // permite reintentar (sin pisar un motor más nuevo)
       throw error;
     });
-  return runner;
+  runner = p;
+  return p;
 }
 
 /** Empieza a cargar el motor en segundo plano para que la primera compilación sea rápida. */
@@ -151,6 +158,33 @@ async function run(
   };
 }
 
+/** Rechaza la compilación en curso (la asigna compileProject mientras corre). */
+let abortCurrent: ((reason: Error) => void) | null = null;
+/** Compilaciones en cola que aún no empezaron, y cancelación pedida para la siguiente. */
+let waiting = 0;
+let cancelNext = false;
+
+/**
+ * Cancela la compilación en curso. BusyTeX no se puede interrumpir a mitad de una
+ * pasada, así que se detiene su worker; la siguiente compilación vuelve a cargar el
+ * motor (tarda unos segundos más). Devuelve false si no había nada que cancelar.
+ */
+export function cancelCompile(): boolean {
+  const abort = abortCurrent;
+  if (!abort) {
+    // aún en cola: se cancela en cuanto le toque (si no hay nada en cola, no hace nada)
+    if (waiting > 0) cancelNext = true;
+    return waiting > 0;
+  }
+  abortCurrent = null;
+  const old = runner;
+  runner = null;
+  ready = false;
+  void old?.then((r) => r.terminate()).catch(() => undefined);
+  abort(new Error("Compilación cancelada"));
+  return true;
+}
+
 /** Compila de una en una: si se pulsa dos veces, la segunda espera a la primera. */
 export function compileProject(
   files: ProjectFile[],
@@ -158,7 +192,23 @@ export function compileProject(
 ): Promise<CompileResult> {
   const { main = "main.tex", engine = "pdflatex", cacheKey = "default", draft = false } = opts;
   const key = auxKey(cacheKey, main, engine);
-  const job = queue.then(() => run(files, main, engine, navigator.onLine, key, draft));
+  waiting++;
+  const job = queue.then(
+    () =>
+      new Promise<CompileResult>((resolve, reject) => {
+        waiting--;
+        if (cancelNext) {
+          cancelNext = false;
+          return reject(new Error("Compilación cancelada"));
+        }
+        abortCurrent = reject;
+        run(files, main, engine, navigator.onLine, key, draft)
+          .then(resolve, reject)
+          .finally(() => {
+            if (abortCurrent === reject) abortCurrent = null;
+          });
+      }),
+  );
   queue = job.catch(() => undefined);
   return job;
 }
