@@ -37,6 +37,23 @@ Publicar una versión:
 .\scripts\release.ps1 -Version 0.1.5 -Notes "Qué cambió"
 ```
 
+### Publicar desde Linux (Windows + Linux a la vez)
+
+`scripts/release.sh` compila Linux (`.AppImage` con actualización automática y `.deb`) y,
+de forma cruzada, el instalador de Windows. Requisitos en Ubuntu 24.04:
+
+```bash
+sudo apt install -y build-essential pkg-config libwebkit2gtk-4.1-dev libgtk-3-dev \
+  libayatana-appindicator3-dev librsvg2-dev libssl-dev libxdo-dev nsis clang lld llvm file
+cargo install --locked cargo-xwin
+```
+
+y la clave de firma en `~/.tauri/folio-updater.key`. Luego:
+
+```bash
+./scripts/release.sh 0.1.6 "Qué cambió"
+```
+
 ## Licencia y créditos
 
 Folio se distribuye bajo **AGPL-3.0** (ver `LICENSE`), igual que los componentes que usa:

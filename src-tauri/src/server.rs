@@ -208,6 +208,18 @@ fn serve_static(ctx: &Ctx, req: Request, path: &str) {
     let _ = req.respond(Response::new(StatusCode(200), headers, file, len, None));
 }
 
+/// Abre una URL o carpeta con el programa predeterminado del sistema
+/// (Explorador en Windows, Finder en macOS, el gestor de archivos/navegador en Linux).
+fn open_with_system(target: &str) {
+    #[cfg(windows)]
+    let cmd = "explorer";
+    #[cfg(target_os = "macos")]
+    let cmd = "open";
+    #[cfg(all(unix, not(target_os = "macos")))]
+    let cmd = "xdg-open";
+    let _ = std::process::Command::new(cmd).arg(target).spawn();
+}
+
 fn valid_id(s: &str) -> bool {
     !s.is_empty() && s.len() < 64 && s.chars().all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
 }
@@ -260,7 +272,7 @@ fn api(ctx: &Ctx, mut req: Request, path: &str, url: &str) {
             if !ok_scheme || u.chars().any(|c| c.is_control() || c == '"') {
                 return fail(req, 400, "enlace no admitido");
             }
-            let _ = std::process::Command::new("explorer").arg(&u).spawn();
+            open_with_system(&u);
             ok(req)
         }
 
@@ -394,7 +406,7 @@ fn api(ctx: &Ctx, mut req: Request, path: &str, url: &str) {
             }
             (Method::Post, ["reveal"]) => match st.project_dir(id) {
                 Ok(dir) => {
-                    let _ = std::process::Command::new("explorer").arg(dir).spawn();
+                    open_with_system(&dir.to_string_lossy());
                     ok(req)
                 }
                 Err(err) => fail(req, 404, &err),
