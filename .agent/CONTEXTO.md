@@ -196,7 +196,7 @@ Un `.vsix` para los dos (Antigravity es fork de VS Code). Reutiliza `../src` ví
 
 | Ruta | Responsabilidad |
 | --- | --- |
-| `extension/src/extension.ts` | `activate`: comandos, barra de estado, compilar al guardar, lint/checks con debounce |
+| `extension/src/extension.ts` | `activate`: comandos, barra de estado, vista lateral `folio.actions` (icono en la barra de actividad, `media/folio.svg`), compilar al guardar, lint/checks con debounce |
 | `extension/src/compile.ts` | Port de `native.rs` (mismas pasadas, `.folio/build`, cancelación por grupo de procesos) |
 | `extension/src/texproject.ts` | Raíz/principal/motor: `.folio/project.json` → `% !TEX root` → `\documentclass` → ajuste → adivinar |
 | `extension/src/diagnostics.ts` | Colecciones «Folio · LaTeX / Revisión / Proyecto» (`parseLog`, `Parse`, `checkProject`) |

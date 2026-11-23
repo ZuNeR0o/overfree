@@ -51,7 +51,11 @@ async function tableFor(project: TexProject | null, doc: vscode.TextDocument, of
 
 export async function pasteTable(project: TexProject | null) {
   const editor = vscode.window.activeTextEditor;
-  if (!editor) return;
+  // desde la barra lateral se puede pulsar con cualquier archivo delante
+  if (!editor || !/^(la)?tex$/.test(editor.document.languageId)) {
+    void vscode.window.showWarningMessage("Folio: abre un archivo .tex para pegar la tabla.");
+    return;
+  }
   const clip = await vscode.env.clipboard.readText();
   const t = await tableFor(project, editor.document, editor.document.offsetAt(editor.selection.start), clip);
   if (!t) {

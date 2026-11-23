@@ -1,5 +1,9 @@
 # Cambios
 
+## 0.1.2
+
+- Icono de Folio en la barra de actividad (como PlatformIO), con una vista *Acciones*: compilar, ver el PDF, SyncTeX, revisar, tablas, DOI, registro, limpiar y ajustes.
+
 ## 0.1.1
 
 - SyncTeX: el doble clic en el PDF podía llevar al archivo equivocado (p. ej. al \input siguiente)

@@ -69,6 +69,14 @@ export async function run() {
     for (const c of ["folio.compile", "folio.syncForward", "folio.pasteTable", "folio.addReferenceByDoi"]) assert.ok(cmds.includes(c), c);
   });
 
+  await step("icono de Folio en la barra de actividad", async () => {
+    assert.ok(existsSync(path.join(ext.extensionPath, "media", "folio.svg")), "media/folio.svg en el paquete");
+    await vscode.commands.executeCommand("workbench.view.extension.folio");
+    await sleep(3000);
+    shot("0-barra-lateral");
+    await vscode.commands.executeCommand("workbench.view.explorer");
+  });
+
   await step("compila con TeX Live y muestra el PDF en el webview", async () => {
     await vscode.commands.executeCommand("folio.compile");
     assert.ok(existsSync(path.join(ws, ".folio", "build", "main.pdf")), "main.pdf en .folio/build");

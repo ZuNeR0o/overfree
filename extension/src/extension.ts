@@ -187,7 +187,7 @@ export function activate(ctx: vscode.ExtensionContext) {
   command("folio.showLog", () => output.show());
   command("folio.showPdf", async () => {
     const p = await projectFor();
-    if (!p) return;
+    if (!p) return void vscode.window.showWarningMessage("Folio: abre un archivo .tex del proyecto.");
     const pdfPath = path.join(p.root, ".folio", "build", p.main.replace(/^.*[/\\]/, "").replace(/\.tex$/, ".pdf"));
     try {
       await pdf.show(p, pdfPath, pdfPath.replace(/\.pdf$/, ".synctex.gz"), false);
@@ -205,7 +205,7 @@ export function activate(ctx: vscode.ExtensionContext) {
   });
   command("folio.checkProject", async () => {
     const p = await projectFor();
-    if (!p) return;
+    if (!p) return void vscode.window.showWarningMessage("Folio: abre un archivo .tex del proyecto.");
     await diags.checkProject(p);
     void vscode.commands.executeCommand("workbench.actions.view.problems");
   });
@@ -213,10 +213,35 @@ export function activate(ctx: vscode.ExtensionContext) {
   command("folio.addReferenceByDoi", async () => addReferenceByDoi(await projectFor()));
   command("folio.clean", async () => {
     const p = await projectFor();
-    if (!p) return;
+    if (!p) return void vscode.window.showWarningMessage("Folio: abre un archivo .tex del proyecto.");
     await cleanBuild(p.root);
     vscode.window.setStatusBarMessage(`Folio: auxiliares de ${p.main} borrados.`, 4000);
   });
+
+  // Barra lateral (icono de Folio en la barra de actividad): accesos directos a los comandos
+  const actions: [string, string, string, unknown[]?][] = [
+    ["Compilar", "play", "folio.compile"],
+    ["Ver PDF", "open-preview", "folio.showPdf"],
+    ["Ir al PDF (SyncTeX)", "go-to-file", "folio.syncForward"],
+    ["Revisar el proyecto", "checklist", "folio.checkProject"],
+    ["Pegar como tabla LaTeX", "table", "folio.pasteTable"],
+    ["Añadir referencia por DOI", "book", "folio.addReferenceByDoi"],
+    ["Ver registro de compilación", "output", "folio.showLog"],
+    ["Borrar archivos auxiliares", "trash", "folio.clean"],
+    ["Ajustes", "gear", "workbench.action.openSettings", ["@ext:zuner0o.folio-latex"]],
+  ];
+  ctx.subscriptions.push(
+    vscode.window.registerTreeDataProvider<vscode.TreeItem>("folio.actions", {
+      getTreeItem: (i) => i,
+      getChildren: (el) =>
+        el ? [] : actions.map(([label, icon, id, args]) => {
+          const item = new vscode.TreeItem(label);
+          item.iconPath = new vscode.ThemeIcon(icon);
+          item.command = { command: id, title: label, arguments: args };
+          return item;
+        }),
+    }),
+  );
 
   // API para las pruebas de integración (extension/test/integration); no forma parte de la interfaz
   return {

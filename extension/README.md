@@ -5,6 +5,8 @@ Las herramientas de [Folio](https://github.com/ZuNeR0o/overfree) dentro de tu ed
 
 ## Funciones
 
+- **Icono de Folio en la barra de actividad** (a la izquierda, como PlatformIO): abre la vista
+  *Acciones* con todos los comandos a un clic.
 - **Compilar** (`Ctrl+Alt+B`, botón ▶ o al guardar) con el TeX del sistema (MiKTeX o TeX Live):
   pdfLaTeX, XeLaTeX o LuaLaTeX, con BibTeX, Biber, glosarios y makeindex automáticos y las pasadas
   que haga falta. Los auxiliares van a `.folio/build/`, como en la app, así que un proyecto de Folio

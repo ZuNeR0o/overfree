@@ -9,3 +9,4 @@
 
 ## Estado Actual
 - **[Inicio]:** Proyecto `overfree` inicializado con contexto compartido (`AGENTS.md` -> `CLAUDE.md` / `GEMINI.md`).
+- **[2026-11-23 · Opus 5.5]:** Extensión: icono de Folio en la barra de actividad con vista *Acciones* (`extension/package.json`, `extension/src/extension.ts`, `extension/media/folio.svg`, prueba de integración). Publicada extension-v0.1.2. Siguiente: release de la app Folio 0.1.8 (pendiente de aprobación).
