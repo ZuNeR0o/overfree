@@ -204,7 +204,11 @@ Un `.vsix` para los dos (Antigravity es fork de VS Code). Reutiliza `../src` ví
 | `extension/webview/pdf.ts` | Usa `src/pdfview.ts`; worker de pdf.js desde blob |
 | `extension/src/tools.ts` | Tablas desde portapapeles/CSV, figura al soltar imagen, DOI → BibTeX |
 | `extension/test/test.ts` | Pruebas sin VS Code con un TeX simulado (`npm test`) |
+| `extension/test/integration/` | Dentro de VS Code con TeX real: `index.ts` (pasos) y `run.mjs` (lanza VS Code con xvfb-run; `FOLIO_VSIX`, `FOLIO_SHOTS`) |
 
-Comandos (en `extension/`): `npm test` · `npm run typecheck` · `npm run package` → `folio-latex.vsix`.
+Comandos (en `extension/`): `npm test` · `npm run test:integration` · `npm run typecheck` · `npm run package` → `folio-latex.vsix`.
+`activate()` devuelve `{ pdf, diagnostics, isCompiling }` solo para las pruebas de integración.
+SyncTeX (`src/synctex.ts` `inverse`): la caja de una línea de párrafo lleva la etiqueta de donde TeX cerró el
+párrafo; se usa el carácter más cercano de esa línea.
 Seguridad: `folio.texPath`/`folio.shellEscape` restringidos en espacios no fiables; motor validado;
 el principal debe estar dentro del espacio de trabajo.

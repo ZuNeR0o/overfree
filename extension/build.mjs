@@ -4,6 +4,7 @@
 //   node build.mjs --production  minificado, sin sourcemaps (para el .vsix)
 //   node build.mjs --watch
 //   node build.mjs --test        además, dist/test.js (pruebas sin VS Code)
+//   node build.mjs --integration además, dist/integration.js (pruebas dentro de VS Code)
 import * as esbuild from "esbuild";
 import { copyFileSync, mkdirSync } from "node:fs";
 import { createRequire } from "node:module";
@@ -70,6 +71,18 @@ if (args.has("--test")) {
     platform: "node",
     format: "cjs",
     target: "node18",
+  });
+}
+
+if (args.has("--integration")) {
+  builds.push({
+    ...common,
+    entryPoints: [join(here, "test", "integration", "index.ts")],
+    outfile: join(here, "dist", "integration.js"),
+    platform: "node",
+    format: "cjs",
+    target: "node18",
+    external: ["vscode"],
   });
 }
 

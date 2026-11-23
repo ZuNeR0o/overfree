@@ -232,6 +232,26 @@ test("SyncTeX: ida y vuelta", async () => {
   assert.deepEqual(inv, { file: "main.tex", line: 10 });
 });
 
+test("SyncTeX: la caja de línea lleva la etiqueta del \\input siguiente; manda el carácter", async () => {
+  // como genera pdflatex: el párrafo de main.tex:6 lo cierra el \\subsection de capitulo.tex:2
+  const syn = [
+    "SyncTeX Version:1", "Input:1:/p/./main.tex", "Input:2:/p/./capitulo.tex", "Output:pdf",
+    "Magnification:1000", "Unit:1", "X Offset:0", "Y Offset:0", "Content:", "{1",
+    "(2,2:8799518,10300473:22609920,455111,127431",
+    "x2,2:9272834,10300473",
+    "x1,6:10437921,10300473",
+    "k1,6:10642291,10300473:204370",
+    "x1,6:20000000,10300473",
+    ")",
+    "}1", "Postamble:", "",
+  ].join("\n");
+  const data = await parseSynctex(new Uint8Array(gzipSync(syn)), ["main.tex", "capitulo.tex"]);
+  const y = 10300473 / 65781.76 - 2; // un poco por encima de la línea base, dentro de la caja
+  for (const xsp of [9000000, 15000000, 30000000]) {
+    assert.deepEqual(inverse(data, 1, xsp / 65781.76, y), { file: "main.tex", line: 6 }, `x=${xsp}`);
+  }
+});
+
 async function main() {
   let failed = 0;
   for (const [name, fn] of tests) {

@@ -106,10 +106,17 @@ async function load(data: Uint8Array) {
     p.className = "empty";
     p.textContent = `No se pudo iniciar pdf.js: ${e instanceof Error ? e.message : e}`;
     root.append(p);
+    vscode.postMessage({ type: "error", message: p.textContent });
     return;
   }
   root.querySelector(".empty")?.remove();
-  await viewer.load(data);
+  try {
+    await viewer.load(data);
+    vscode.postMessage({ type: "rendered", pages: viewer.pageCount });
+  } catch (e) {
+    vscode.postMessage({ type: "error", message: e instanceof Error ? e.message : String(e) });
+    return;
+  }
   if (findInput.value.trim()) {
     hits = await viewer.find(findInput.value);
     hitIndex = Math.min(hitIndex, Math.max(0, hits.length - 1));

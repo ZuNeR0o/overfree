@@ -70,6 +70,9 @@ llega también a la extensión.
 npm install            # en la raíz del repo (pdf.js) y en extension/
 cd extension
 npm test               # pruebas sin VS Code (TeX simulado)
+npm run test:integration   # dentro de VS Code con TeX real (xvfb-run si no hay pantalla)
+FOLIO_VSIX=folio-latex.vsix npm run test:integration   # lo mismo, con el paquete instalado
+FOLIO_SHOTS=/carpeta npm run test:integration          # guarda capturas de pantalla
 npm run typecheck
 npm run package        # → folio-latex.vsix
 ```

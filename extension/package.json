@@ -2,7 +2,7 @@
   "name": "folio-latex",
   "displayName": "Folio LaTeX",
   "description": "Lo mejor de Folio dentro de VS Code y Antigravity: compilación con el TeX del sistema, errores explicados en español, visor PDF con SyncTeX, revisión en vivo, revisión del proyecto, tablas desde Excel/CSV y referencias por DOI.",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "publisher": "zuner0o",
   "license": "AGPL-3.0-only",
   "icon": "media/icon.png",
@@ -104,6 +104,7 @@
     "watch": "node build.mjs --watch",
     "typecheck": "tsc --noEmit -p .",
     "test": "node build.mjs --test && node dist/test.js",
+    "test:integration": "node build.mjs --integration && node test/integration/run.mjs",
     "package": "node build.mjs --production && vsce package --no-dependencies --out folio-latex.vsix"
   },
   "devDependencies": {

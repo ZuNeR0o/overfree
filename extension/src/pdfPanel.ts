@@ -12,7 +12,12 @@ import { isInside, listProjectFiles, type TexProject } from "./texproject";
 type FromWebview =
   | { type: "ready" }
   | { type: "inverse"; page: number; x: number; y: number }
-  | { type: "link"; url: string };
+  | { type: "link"; url: string }
+  | { type: "rendered"; pages: number }
+  | { type: "error"; message: string };
+
+/** Último resultado del webview: cuántas páginas dibujó o por qué falló. */
+export type RenderState = { pages: number; error?: string; at: number };
 
 export class PdfPanel implements vscode.Disposable {
   private panel: vscode.WebviewPanel | null = null;
@@ -21,6 +26,7 @@ export class PdfPanel implements vscode.Disposable {
   private project: TexProject | null = null;
   private sync: SyncData | null = null;
   private pdfPath: string | null = null;
+  renderState: RenderState | null = null;
 
   constructor(private readonly ctx: vscode.ExtensionContext) {}
 
@@ -49,14 +55,20 @@ export class PdfPanel implements vscode.Disposable {
   }
 
   /** Ir al PDF: resalta lo que generó esa línea del código. */
-  revealSource(file: string, line: number): boolean {
-    if (!this.panel || !this.project || !this.sync) return false;
+  /** Devuelve la zona del PDF resaltada (puntos PDF), o null si no hay correspondencia. */
+  revealSource(file: string, line: number) {
+    if (!this.panel || !this.project || !this.sync) return null;
     const rel = path.relative(this.project.root, file).split(path.sep).join("/");
     const r = forward(this.sync, rel, line);
-    if (!r) return false;
+    if (!r) return null;
     this.panel.reveal(undefined, true);
     void this.panel.webview.postMessage({ type: "reveal", ...r });
-    return true;
+    return r;
+  }
+
+  /** Lo mismo que un doble clic en el PDF (para las pruebas de integración). */
+  inverseAt(page: number, x: number, y: number) {
+    return this.onMessage({ type: "inverse", page, x, y });
   }
 
   get currentProject() {
@@ -94,6 +106,8 @@ export class PdfPanel implements vscode.Disposable {
   private async onMessage(m: FromWebview) {
     if (!m || typeof m !== "object") return;
     if (m.type === "ready") this.markReady?.();
+    else if (m.type === "rendered") this.renderState = { pages: Number(m.pages) || 0, at: Date.now() };
+    else if (m.type === "error") this.renderState = { pages: 0, error: String(m.message), at: Date.now() };
     else if (m.type === "link") {
       if (typeof m.url !== "string" || !/^(https?:|mailto:)/i.test(m.url)) return;
       try {
@@ -156,7 +170,7 @@ export class PdfPanel implements vscode.Disposable {
     </select>
     <span id="page-info" class="muted"></span>
     <span class="spacer"></span>
-    <input id="find" type="search" placeholder="Buscar en el PDF (Ctrl+F)" spellcheck="false">
+    <input id="find" type="search" placeholder="Buscar (Ctrl+F)" title="Buscar en el PDF (Ctrl+F; Enter: siguiente)" spellcheck="false">
     <span id="find-info" class="muted"></span>
   </div>
   <div id="pdf-root" class="pdf-root"><p class="empty">Compila para ver el PDF.</p></div>

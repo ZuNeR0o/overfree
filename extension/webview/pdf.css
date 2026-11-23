@@ -27,6 +27,8 @@ body {
   flex: none;
 }
 .bar .spacer { flex: 1; }
+.bar > * { flex: none; }
+#page-info { white-space: nowrap; }
 .bar button, .bar select, .bar input {
   font: inherit;
   color: var(--vscode-input-foreground);
@@ -37,9 +39,10 @@ body {
 }
 .bar button { min-width: 26px; cursor: pointer; background: var(--vscode-button-secondaryBackground); color: var(--vscode-button-secondaryForeground); }
 .bar button:hover { background: var(--vscode-button-secondaryHoverBackground); }
-.bar input { width: 200px; max-width: 40vw; }
+.bar input#find { flex: 0 1 200px; min-width: 70px; }
 .bar :focus-visible { outline: 1px solid var(--vscode-focusBorder); outline-offset: -1px; }
-#find-info { min-width: 48px; text-align: right; }
+#find-info { min-width: 0; white-space: nowrap; text-align: right; }
+#find-info:empty { display: none; }
 
 .empty { margin: auto; color: var(--muted-foreground); }
 

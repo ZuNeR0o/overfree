@@ -217,6 +217,13 @@ export function activate(ctx: vscode.ExtensionContext) {
     await cleanBuild(p.root);
     vscode.window.setStatusBarMessage(`Folio: auxiliares de ${p.main} borrados.`, 4000);
   });
+
+  // API para las pruebas de integración (extension/test/integration); no forma parte de la interfaz
+  return {
+    pdf,
+    diagnostics: diags,
+    isCompiling: () => running !== null,
+  };
 }
 
 export function deactivate() {

@@ -113,5 +113,25 @@ export function inverse(data: SyncData, page: number, x: number, y: number) {
       best = b;
     }
   }
-  return best ? { file: best.file, line: best.line } : null;
+  if (!best) return null;
+  // La caja de una línea de párrafo lleva el archivo/línea donde TeX cerró el párrafo (p. ej.
+  // el \section o \input siguiente), no el del texto. Los caracteres y espacios de dentro
+  // (registros sin tamaño) sí llevan su línea real: se usa el último a la izquierda del punto.
+  if (bestScore < 1000 && best.w > 0) {
+    const top = best.y - best.h - 1;
+    const bottom = best.y + best.d + 1;
+    const inLine = data.boxes.filter(
+      (b) => b.page === page && b.w === 0 && b.h === 0 && b.y >= top && b.y <= bottom && b.x >= best!.x - 1 && b.x <= best!.x + best!.w + 1,
+    );
+    // los que repiten la etiqueta de la caja (p. ej. la sangría) arrastran el mismo error
+    const own = (b: SyncBox) => b.file === best!.file && b.line === best!.line;
+    const pool = inLine.some((b) => !own(b)) ? inLine.filter((b) => !own(b)) : inLine;
+    let point: SyncBox | null = null;
+    for (const b of pool) {
+      // el más cercano por la izquierda; si no hay, el primero por la derecha
+      if (!point || (b.x <= x ? point.x > x || b.x > point.x : point.x > x && b.x < point.x)) point = b;
+    }
+    if (point) return { file: point.file, line: point.line };
+  }
+  return { file: best.file, line: best.line };
 }

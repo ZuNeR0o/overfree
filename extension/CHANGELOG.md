@@ -1,5 +1,13 @@
 # Cambios
 
+## 0.1.1
+
+- SyncTeX: el doble clic en el PDF podía llevar al archivo equivocado (p. ej. al \input siguiente)
+  cuando el párrafo terminaba justo antes de un \section o \input. Ahora manda el carácter pulsado.
+- Barra del visor PDF: en paneles estrechos el número de página se partía en varias líneas y el buscador
+  se cortaba.
+- Pruebas de integración dentro de VS Code con TeX real (`npm run test:integration`).
+
 ## 0.1.0
 
 Primera versión: compilación con el TeX del sistema (mismas pasadas que la app Folio, auxiliares en
