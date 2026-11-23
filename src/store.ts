@@ -1,6 +1,6 @@
 // Almacenamiento de proyectos. En el navegador usa IndexedDB (sin el límite de
 // ~5 MB de localStorage). En la app de escritorio se sustituye por carpetas reales
-// en disco (ver electron/preload.cjs), con la misma interfaz.
+// en disco (ver src-tauri/src/server.rs), con la misma interfaz.
 
 import { decodeText, encodeText, type TextEncodingName } from "./encoding";
 import type { Engine } from "./latex";
@@ -58,6 +58,7 @@ export type Output = {
 
 export const TEXT_EXT = /\.(tex|bib|sty|cls|bst|bbx|cbx|lbx|def|cfg|clo|dtx|ins|ltx|txt|md|csv|dat|tsv|json|xml|lua|py|r|m|tikz|pgf|gp|asy|mp|bbl|ist|idx|gls|nlo|log)$/i;
 export const isTextPath = (p: string) => TEXT_EXT.test(p) || !/\.[^/]+$/.test(p);
+const fromB64 = (b: string) => Uint8Array.from(atob(b), (c) => c.charCodeAt(0));
 
 export const newId = () =>
   Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
@@ -187,7 +188,7 @@ class BrowserBackend implements Backend {
  */
 function fromRow(path: string, r: { text?: string; b64?: string }): StoredFile {
   if (r.text !== undefined) return { path, text: r.text };
-  const data = Uint8Array.from(atob(r.b64 ?? ""), (c) => c.charCodeAt(0));
+  const data = fromB64(r.b64 ?? "");
   if (!isTextPath(path)) return { path, data };
   const { text, encoding } = decodeText(data);
   return encoding ? { path, text, encoding } : { path, text };
@@ -306,7 +307,7 @@ class DesktopBackend implements Backend {
       `${this.p(id)}/native/compile`,
       JSON.stringify(opts),
     );
-    const dec = (b: string | null) => (b ? Uint8Array.from(atob(b), (c) => c.charCodeAt(0)) : null);
+    const dec = (b: string | null) => (b ? fromB64(b) : null);
     return { success: r.success, pdf: dec(r.pdf), synctex: dec(r.synctex), log: r.log };
   }
   async cleanNative(id: string) {
@@ -367,7 +368,7 @@ export async function migrateLegacy(): Promise<void> {
       await backend.writeFile(meta.id, {
         path: f.path,
         text: f.text,
-        data: f.b64 ? Uint8Array.from(atob(f.b64), (c) => c.charCodeAt(0)) : undefined,
+        data: f.b64 ? fromB64(f.b64) : undefined,
       });
     }
     localStorage.removeItem(KEY);

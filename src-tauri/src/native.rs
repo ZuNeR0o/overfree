@@ -14,6 +14,9 @@ use serde_json::{json, Value};
 
 use crate::store::Res;
 
+/// Separador de listas de rutas de kpathsea; el vacío final añade las rutas por defecto.
+const PATH_SEP: char = if cfg!(windows) { ';' } else { ':' };
+
 #[cfg(windows)]
 fn no_window(cmd: &mut Command) {
     use std::os::windows::process::CommandExt;
@@ -215,12 +218,15 @@ fn compile_inner(dir: &Path, main: &str, engine: &str, shell_escape: bool, draft
         _ => "pdflatex",
     };
     // ruta relativa simple dentro del proyecto: nada de C:, \, .., ni nombres que TeX o el
-    // programa interpreten como opción (-…), primitiva (\…) o formato (&…)
+    // programa interpreten como opción (-…), primitiva (\…), formato (&…) o código ({ } % #);
+    // TeX se salta los espacios iniciales, así que tampoco se admiten
     let valid = main.ends_with(".tex")
-        && !main.contains(':')
+        && main.len() > ".tex".len()
+        && !main.contains([':', '{', '}', '%', '#'])
+        && (cfg!(windows) || !main.contains('\\'))
         && !main.starts_with(['/', '\\', '-', '&'])
         && Path::new(main).components().all(|c| matches!(c, std::path::Component::Normal(_)))
-        && main.split(['/', '\\']).all(|seg| !seg.is_empty() && !seg.starts_with(['-', '&', '\\']));
+        && main.split(['/', '\\']).all(|seg| !seg.is_empty() && !seg.starts_with(['-', '&', '\\']) && !seg.starts_with(char::is_whitespace));
     if !valid || !dir.join(main).is_file() {
         return Err("Archivo principal no válido.".into());
     }
@@ -252,11 +258,12 @@ fn compile_inner(dir: &Path, main: &str, engine: &str, shell_escape: bool, draft
     let mut prev_aux = read(&aux);
 
     let mut passes = 0;
+    let mut log;
     loop {
         passes += 1;
         let r = run(&bin, exe, &args, dir, &[])?;
         tools_log += &r.log;
-        let log = read(&log_path);
+        log = read(&log_path);
         let now_aux = read(&aux);
         // error fatal (sin PDF): no tiene sentido seguir con bibliografía ni más pasadas
         if draft || !pdf_path.exists() {
@@ -271,7 +278,7 @@ fn compile_inner(dir: &Path, main: &str, engine: &str, shell_escape: bool, draft
                 tools_log += &r.log;
                 extra = true;
             } else if now_aux.contains("\\bibdata") {
-                let r = run(&bin, "bibtex", &[&job], &build, &[("BIBINPUTS", &format!("{dir_s};")), ("BSTINPUTS", &format!("{dir_s};"))])?;
+                let r = run(&bin, "bibtex", &[&job], &build, &[("BIBINPUTS", &format!("{dir_s}{PATH_SEP}")), ("BSTINPUTS", &format!("{dir_s}{PATH_SEP}"))])?;
                 tools_log += &r.log;
                 extra = true;
             }
@@ -304,7 +311,6 @@ fn compile_inner(dir: &Path, main: &str, engine: &str, shell_escape: bool, draft
     let b64 = base64::engine::general_purpose::STANDARD;
     let pdf = fs::read(&pdf_path).ok();
     let synctex = fs::read(&synctex_path).ok();
-    let log = read(&log_path);
     Ok(json!({
         "success": pdf.is_some(),
         "pdf": pdf.map(|b| b64.encode(b)),

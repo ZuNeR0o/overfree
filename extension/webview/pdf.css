@@ -1,0 +1,89 @@
+/* Visor PDF de Folio dentro de VS Code / Antigravity. Las reglas del visor son las de
+   src/style.css; los colores salen del tema del IDE (variables --vscode-*). */
+:root {
+  --canvas: var(--vscode-editorWidget-background, #f3f5f2);
+  --border: var(--vscode-panel-border, rgba(128, 128, 128, 0.35));
+  --muted-foreground: var(--vscode-descriptionForeground, #6b7570);
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body {
+  display: flex;
+  flex-direction: column;
+  background: var(--canvas);
+  color: var(--vscode-foreground);
+  font: var(--vscode-font-size, 13px) / 1.4 var(--vscode-font-family, system-ui, sans-serif);
+  overflow: hidden;
+}
+.muted { color: var(--muted-foreground); font-size: 12px; }
+
+.bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--border);
+  background: var(--vscode-editor-background);
+  flex: none;
+}
+.bar .spacer { flex: 1; }
+.bar button, .bar select, .bar input {
+  font: inherit;
+  color: var(--vscode-input-foreground);
+  background: var(--vscode-input-background);
+  border: 1px solid var(--vscode-input-border, var(--border));
+  border-radius: 2px;
+  padding: 2px 6px;
+}
+.bar button { min-width: 26px; cursor: pointer; background: var(--vscode-button-secondaryBackground); color: var(--vscode-button-secondaryForeground); }
+.bar button:hover { background: var(--vscode-button-secondaryHoverBackground); }
+.bar input { width: 200px; max-width: 40vw; }
+.bar :focus-visible { outline: 1px solid var(--vscode-focusBorder); outline-offset: -1px; }
+#find-info { min-width: 48px; text-align: right; }
+
+.empty { margin: auto; color: var(--muted-foreground); }
+
+.pdf-root { position: relative; flex: 1; min-height: 0; overflow: auto; padding: 16px; display: flex; flex-direction: column; align-items: center; gap: 14px; }
+.pdf-page { position: relative; flex: none; background: #fff; box-shadow: 0 0 0 1px var(--border); border-radius: 2px; overflow: hidden; }
+.pdf-page canvas { display: block; width: 100%; height: 100%; }
+body.invert.vscode-dark .pdf-page canvas, body.invert.vscode-high-contrast .pdf-page canvas { filter: invert(0.9) hue-rotate(180deg); }
+
+/* Capa de texto de pdf.js (reglas mínimas de pdf_viewer.css): seleccionar y copiar */
+.textLayer {
+  position: absolute;
+  inset: 0;
+  overflow: clip;
+  line-height: 1;
+  text-align: initial;
+  transform-origin: 0 0;
+  z-index: 1;
+  --min-font-size: 1;
+  --text-scale-factor: calc(var(--total-scale-factor) * var(--min-font-size));
+  --min-font-size-inv: calc(1 / var(--min-font-size));
+}
+.textLayer :is(span, br) { color: transparent; position: absolute; white-space: pre; cursor: text; transform-origin: 0% 0%; }
+.textLayer > :not(.markedContent), .textLayer .markedContent span:not(.markedContent) {
+  --font-height: 0;
+  font-size: calc(var(--text-scale-factor) * var(--font-height));
+  --scale-x: 1;
+  --rotate: 0deg;
+  transform: rotate(var(--rotate)) scaleX(var(--scale-x)) scale(var(--min-font-size-inv));
+}
+.textLayer .markedContent { display: contents; }
+.textLayer ::selection { background: color-mix(in srgb, #3b82f6 35%, transparent); color: transparent; }
+.textLayer .find-hit { background: color-mix(in srgb, #e9c46a 55%, transparent); border-radius: 2px; }
+.textLayer .find-current { background: color-mix(in srgb, #f97316 60%, transparent); outline: 1px solid #ea580c; }
+.linkLayer { position: absolute; inset: 0; z-index: 2; pointer-events: none; }
+.pdf-link { position: absolute; pointer-events: auto; border-radius: 2px; cursor: pointer; }
+.pdf-link:hover { background: color-mix(in srgb, #3b82f6 18%, transparent); outline: 1px solid color-mix(in srgb, #3b82f6 50%, transparent); }
+
+.sync-mark {
+  z-index: 3;
+  position: absolute;
+  background: color-mix(in srgb, #e9c46a 45%, transparent);
+  border: 1px solid #c8a13c;
+  border-radius: 3px;
+  pointer-events: none;
+  animation: fade 1.6s ease-out forwards;
+}
+@keyframes fade { 0%, 60% { opacity: 1; } 100% { opacity: 0; } }

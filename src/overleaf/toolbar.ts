@@ -111,32 +111,34 @@ export function setSectionLevel(view: EditorView, level: string) {
 
 // ---------- Listas ----------
 
-const toggleList = (env: "itemize" | "enumerate") => (view: EditorView) => {
-  const { state } = view;
-  const r = state.selection.main;
-  const first = state.doc.lineAt(r.from);
-  const last = state.doc.lineAt(r.to);
-  const text = state.sliceDoc(first.from, last.to);
+const toggleList = (env: "itemize" | "enumerate") => {
   const envRe = new RegExp(`^\\s*\\\\begin\\{${env}\\}\\n([\\s\\S]*)\\n\\s*\\\\end\\{${env}\\}\\s*$`);
-  const m = envRe.exec(text);
-  let insert: string;
-  if (m) {
-    // quitar la lista
-    insert = m[1]
-      .split("\n")
-      .map((l) => l.replace(/^\s*\\item\s?/, ""))
-      .join("\n");
-  } else {
-    const items = text.split("\n").map((l) => `\t\\item ${l.trim()}`);
-    insert = `\\begin{${env}}\n${items.join("\n")}\n\\end{${env}}`;
-  }
-  const cursor = m ? first.from : first.from + `\\begin{${env}}\n\t\\item `.length;
-  view.dispatch({
-    changes: { from: first.from, to: last.to, insert },
-    selection: text.trim() && !m ? EditorSelection.range(first.from, first.from + insert.length) : EditorSelection.cursor(Math.min(cursor, first.from + insert.length)),
-  });
-  view.focus();
-  return true;
+  return (view: EditorView) => {
+    const { state } = view;
+    const r = state.selection.main;
+    const first = state.doc.lineAt(r.from);
+    const last = state.doc.lineAt(r.to);
+    const text = state.sliceDoc(first.from, last.to);
+    const m = envRe.exec(text);
+    let insert: string;
+    if (m) {
+      // quitar la lista
+      insert = m[1]
+        .split("\n")
+        .map((l) => l.replace(/^\s*\\item\s?/, ""))
+        .join("\n");
+    } else {
+      const items = text.split("\n").map((l) => `\t\\item ${l.trim()}`);
+      insert = `\\begin{${env}}\n${items.join("\n")}\n\\end{${env}}`;
+    }
+    const cursor = m ? first.from : first.from + `\\begin{${env}}\n\t\\item `.length;
+    view.dispatch({
+      changes: { from: first.from, to: last.to, insert },
+      selection: text.trim() && !m ? EditorSelection.range(first.from, first.from + insert.length) : EditorSelection.cursor(Math.min(cursor, first.from + insert.length)),
+    });
+    view.focus();
+    return true;
+  };
 };
 
 // ---------- Inserción de bloques (adaptado de Overleaf toolbar/commands.ts) ----------
@@ -174,13 +176,13 @@ type Icon = (name: string) => string;
 export type ToolbarExtra = { icon: string; title: string; run: () => void };
 
 export function mountToolbar(root: HTMLElement, getView: () => EditorView, icon: Icon, extras: ToolbarExtra[] = []) {
-  const btn = (ic: string, title: string, run: (v: EditorView) => unknown, label?: string) => {
+  const btn = (ic: string, title: string, run: (v: EditorView) => unknown) => {
     const b = document.createElement("button");
     b.type = "button";
     b.className = "tb-btn";
     b.title = title;
     b.setAttribute("aria-label", title);
-    b.innerHTML = label ? `<span class="tb-label">${label}</span>` : icon(ic);
+    b.innerHTML = icon(ic);
     b.addEventListener("mousedown", (e) => e.preventDefault()); // no quitar el foco al editor
     b.addEventListener("click", () => run(getView()));
     return b;

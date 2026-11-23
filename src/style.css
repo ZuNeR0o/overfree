@@ -1,8 +1,8 @@
 ﻿/*
-  DirecciÃ³n visual de Folio (DESIGN.md): estudio editorial tranquilo y ordenado.
-  Verde bosque y salvia sobre blancos cÃ¡lidos y grises verdosos; esquinas discretas,
-  bordes finos, superficies planas. Sin gradientes ni estÃ©tica de marketing.
-  Los nombres de los tokens son los semÃ¡nticos de shadcn para poder portarlos a app/global.css.
+  Dirección visual de Folio: estudio editorial tranquilo y ordenado.
+  Verde bosque y salvia sobre blancos cálidos y grises verdosos; esquinas discretas,
+  bordes finos, superficies planas. Sin gradientes ni estética de marketing.
+  Los nombres de los tokens son los semánticos de shadcn.
 */
 :root {
   color-scheme: light;
@@ -15,7 +15,6 @@
   --primary-hover: #264b39;
   --primary-foreground: #ffffff;
   --accent: #dde6da;
-  --accent-foreground: #1d2822;
   --destructive: #9b3b32;
   --warning: #8a6115;
   --info: #4a6a8a;
@@ -47,8 +46,7 @@
     --primary-hover: #97d0b0;
     --primary-foreground: #0f1612;
     --accent: #26352d;
-    --accent-foreground: #e3eae5;
-    --destructive: #e08a80;
+      --destructive: #e08a80;
     --warning: #d8b56a;
     --info: #8fb2d6;
     --ring: #7fbf9b;
@@ -71,7 +69,6 @@
   --primary-hover: #97d0b0;
   --primary-foreground: #0f1612;
   --accent: #26352d;
-  --accent-foreground: #e3eae5;
   --destructive: #e08a80;
   --warning: #d8b56a;
   --info: #8fb2d6;
@@ -88,7 +85,7 @@
 html, body { height: 100%; margin: 0; }
 body { font: 14px/1.45 var(--font-ui); background: var(--background); color: var(--foreground); overflow: hidden; }
 body.resizing { cursor: col-resize; user-select: none; }
-body.resizing iframe, body.resizing .pdf-root { pointer-events: none; }
+body.resizing .pdf-root { pointer-events: none; }
 [hidden] { display: none !important; }
 button, select, input { font: inherit; color: inherit; }
 button { cursor: pointer; }
@@ -132,7 +129,6 @@ button:disabled { cursor: default; }
 .btn.small { padding: 3px 8px; font-size: 12.5px; }
 .btn.primary { background: var(--primary); color: var(--primary-foreground); }
 .btn.primary:hover { background: var(--primary-hover); }
-.btn.primary:disabled { opacity: 0.7; cursor: progress; }
 /* mientras compila, el botón Compilar sirve para cancelar */
 .btn.primary.cancel { background: var(--destructive); color: #fff; }
 .btn.primary.cancel:hover { filter: brightness(1.08); background: var(--destructive); }
@@ -431,8 +427,8 @@ html.pdf-dark[data-theme="dark"] .pdf-page canvas { filter: invert(0.9) hue-rota
 .pdf-find input { flex: 1; min-width: 0; padding: 3px 8px; }
 .pdf-find .muted { font-size: 12px; min-width: 60px; text-align: right; }
 
-.sync-mark { z-index: 3; }
 .sync-mark {
+  z-index: 3;
   position: absolute;
   background: color-mix(in srgb, #e9c46a 45%, transparent);
   border: 1px solid #c8a13c;
@@ -496,7 +492,7 @@ html.pdf-dark[data-theme="dark"] .pdf-page canvas { filter: invert(0.9) hue-rota
   white-space: nowrap;
 }
 
-/* ---------- DiÃ¡logos ---------- */
+/* ---------- Diálogos ---------- */
 .dlg {
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -521,7 +517,6 @@ html.pdf-dark[data-theme="dark"] .pdf-page canvas { filter: invert(0.9) hue-rota
 .project-list li:hover, .project-list li.active { background: var(--accent); }
 .proj-open { flex: 1; display: flex; flex-direction: column; gap: 2px; text-align: left; background: none; border: 0; padding: 8px 10px; min-width: 0; }
 .proj-open .muted { font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.project-list li:hover .actions { visibility: visible; }
 
 .history { display: grid; grid-template-columns: 240px 1fr; height: 60vh; }
 .snap-list { list-style: none; margin: 0; padding: 8px; overflow: auto; border-right: 1px solid var(--border); }

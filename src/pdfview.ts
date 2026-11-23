@@ -187,7 +187,6 @@ export class PdfViewer {
     const textLayer = document.createElement("div");
     textLayer.className = "textLayer";
     textLayer.style.setProperty("--total-scale-factor", String(scale));
-    textLayer.style.setProperty("--scale-factor", String(scale));
     p.el.append(textLayer);
     try {
       const tl = new pdfjs.TextLayer({ textContentSource: await this.textContent(n), container: textLayer, viewport: cssVp });

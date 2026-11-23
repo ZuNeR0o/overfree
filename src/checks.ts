@@ -5,7 +5,7 @@
 
 import type { Problem } from "./logparse";
 import type { StoredFile } from "./store";
-import { extractBibEntries } from "./complete";
+import { extractBibEntries } from "./refs";
 
 const SOURCE = "Proyecto";
 const MAX_PER_KIND = 40; // para no inundar la lista en proyectos grandes

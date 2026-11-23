@@ -28,27 +28,29 @@ function unwrap(log: string) {
   return out;
 }
 
+/** Errores más frecuentes: patrón → explicación en español. */
+const TRANSLATIONS: [RegExp, (m: RegExpExecArray) => string][] = [
+  [/^Undefined control sequence (\\\S+)/, (m) => `Comando no definido: ${m[1]}. ¿Está mal escrito o falta cargar su paquete?`],
+  [/^Undefined control sequence/, () => "Comando no definido. ¿Está mal escrito o falta cargar su paquete?"],
+  [/^Missing \$ inserted/, () => "Falta un $: hay un símbolo matemático fuera del modo matemático."],
+  [/^LaTeX Error: File `([^']+)' not found/, (m) => `No se encuentra el archivo ${m[1]}.`],
+  [/^LaTeX Error: Environment (\S+) undefined/, (m) => `El entorno ${m[1]} no existe. ¿Falta cargar su paquete?`],
+  [/^LaTeX Error: \\begin\{([^}]+)\} on input line (\d+) ended by \\end\{([^}]+)\}/, (m) => `\\begin{${m[1]}} (línea ${m[2]}) se cierra con \\end{${m[3]}}.`],
+  [/^LaTeX Error: Missing \\begin\{document\}/, () => "Falta \\begin{document} o hay texto en el preámbulo."],
+  [/^Misplaced alignment tab character &/, () => "Hay un & fuera de una tabla o entorno de alineación. Usa \\& para el símbolo."],
+  [/^Extra \}, or forgotten/, () => "Sobra una } o falta su { de apertura."],
+  [/^Missing \} inserted/, () => "Falta cerrar una llave }."],
+  [/^Paragraph ended before (\S+) was complete/, (m) => `El argumento de ${m[1]} no se cerró antes del fin del párrafo (¿falta una }?).`],
+  [/^File ended while scanning use of (\S+)/, (m) => `El archivo terminó sin cerrar el argumento de ${m[1]} (¿falta una }?).`],
+  [/^LaTeX Error: Can be used only in preamble/, () => "Este comando solo se puede usar en el preámbulo."],
+  [/^LaTeX Error: There's no line here to end/, () => "Hay un \\\\ donde no hay línea que terminar (p. ej. tras una línea en blanco)."],
+  [/^Double superscript/, () => "Doble superíndice: usa llaves, p. ej. x^{a^b}."],
+  [/^Double subscript/, () => "Doble subíndice: usa llaves, p. ej. x_{a_b}."],
+];
+
 /** Traduce y explica los errores más frecuentes; deja el original entre paréntesis. */
 function translate(msg: string): string {
-  const rules: [RegExp, (m: RegExpExecArray) => string][] = [
-    [/^Undefined control sequence (\\\S+)/, (m) => `Comando no definido: ${m[1]}. ¿Está mal escrito o falta cargar su paquete?`],
-    [/^Undefined control sequence/, () => "Comando no definido. ¿Está mal escrito o falta cargar su paquete?"],
-    [/^Missing \$ inserted/, () => "Falta un $: hay un símbolo matemático fuera del modo matemático."],
-    [/^LaTeX Error: File `([^']+)' not found/, (m) => `No se encuentra el archivo ${m[1]}.`],
-    [/^LaTeX Error: Environment (\S+) undefined/, (m) => `El entorno ${m[1]} no existe. ¿Falta cargar su paquete?`],
-    [/^LaTeX Error: \\begin\{([^}]+)\} on input line (\d+) ended by \\end\{([^}]+)\}/, (m) => `\\begin{${m[1]}} (línea ${m[2]}) se cierra con \\end{${m[3]}}.`],
-    [/^LaTeX Error: Missing \\begin\{document\}/, () => "Falta \\begin{document} o hay texto en el preámbulo."],
-    [/^Misplaced alignment tab character &/, () => "Hay un & fuera de una tabla o entorno de alineación. Usa \\& para el símbolo."],
-    [/^Extra \}, or forgotten/, () => "Sobra una } o falta su { de apertura."],
-    [/^Missing \} inserted/, () => "Falta cerrar una llave }."],
-    [/^Paragraph ended before (\S+) was complete/, (m) => `El argumento de ${m[1]} no se cerró antes del fin del párrafo (¿falta una }?).`],
-    [/^File ended while scanning use of (\S+)/, (m) => `El archivo terminó sin cerrar el argumento de ${m[1]} (¿falta una }?).`],
-    [/^LaTeX Error: Can be used only in preamble/, () => "Este comando solo se puede usar en el preámbulo."],
-    [/^LaTeX Error: There's no line here to end/, () => "Hay un \\\\ donde no hay línea que terminar (p. ej. tras una línea en blanco)."],
-    [/^Double superscript/, () => "Doble superíndice: usa llaves, p. ej. x^{a^b}."],
-    [/^Double subscript/, () => "Doble subíndice: usa llaves, p. ej. x_{a_b}."],
-  ];
-  for (const [re, fn] of rules) {
+  for (const [re, fn] of TRANSLATIONS) {
     const m = re.exec(msg);
     if (m) return `${fn(m)} (${msg})`;
   }

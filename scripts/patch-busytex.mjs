@@ -7,8 +7,8 @@ const file = "public/core/busytex/busytex_pipeline.js";
 if (!existsSync(file)) process.exit(0);
 
 // los parches buscan texto con saltos LF: se normaliza por si el archivo trae CRLF
-let src = readFileSync(file, "utf8").replace(/\r\n/g, "\n");
 const before = readFileSync(file, "utf8");
+let src = before.replace(/\r\n/g, "\n");
 
 // 1. No detenerse en el primer error.
 src = src.replaceAll("'--halt-on-error', ", "");

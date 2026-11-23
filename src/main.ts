@@ -1,11 +1,10 @@
 import "@fontsource-variable/inter";
 import { EditorView, basicSetup } from "codemirror";
 import { Annotation, Compartment, EditorSelection, EditorState, type Extension } from "@codemirror/state";
-import { isolateHistory } from "@codemirror/commands";
 import { keymap } from "@codemirror/view";
 import { HighlightStyle, indentUnit, syntaxHighlighting } from "@codemirror/language";
 import { acceptCompletion, autocompletion, startCompletion } from "@codemirror/autocomplete";
-import { indentLess, indentMore } from "@codemirror/commands";
+import { indentLess, indentMore, isolateHistory } from "@codemirror/commands";
 import { forceLinting, lintGutter, setDiagnostics, type Diagnostic } from "@codemirror/lint";
 import { decodeText, encodeText, unencodable } from "./encoding";
 import { latex } from "./overleaf/latex-language";
@@ -68,7 +67,7 @@ function iconBtn(name: string, title: string, onClick: (e: MouseEvent) => void) 
   return b;
 }
 
-/** Sustituto de prompt(), que no existe en Electron. */
+/** Sustituto de prompt(), que el WebView de Tauri no implementa. */
 function ask(label: string, value = ""): Promise<string | null> {
   const dlg = $<HTMLDialogElement>("ask-dlg");
   const input = $<HTMLInputElement>("ask-input");
@@ -620,13 +619,11 @@ function onPaste(e: ClipboardEvent, v: EditorView) {
 }
 
 /** Paquetes cargados en el proyecto (para decidir columnas S de siunitx y booktabs). */
-const projectUses = (pkg: string) =>
-  files.some(
-    (f) =>
-      f.text !== undefined &&
-      // sin comentarios: un "% \usepackage{booktabs}" no cuenta
-      new RegExp(`\\\\usepackage(\\[[^\\]]*\\])?\\{[^}]*\\b${pkg}\\b`).test(f.text.replace(/(^|[^\\])%.*$/gm, "$1")),
-  );
+const projectUses = (pkg: string) => {
+  const re = new RegExp(`\\\\usepackage(\\[[^\\]]*\\])?\\{[^}]*\\b${pkg}\\b`);
+  // sin comentarios: un "% \usepackage{booktabs}" no cuenta
+  return files.some((f) => f.text !== undefined && re.test(f.text.replace(/(^|[^\\])%.*$/gm, "$1")));
+};
 
 /**
  * Inserta una tabla. Si `plain` se da (pegado), primero se pega el texto tal cual y después

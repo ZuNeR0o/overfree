@@ -1,5 +1,5 @@
 // Genera el parser Lezer de LaTeX a partir de la gramática de Overleaf (AGPL-3.0).
-// Ejecutar tras modificar src/overleaf/lezer-latex/latex.grammar: npm run gen:parser
+// Ejecutar tras modificar src/overleaf/lezer-latex/latex.grammar: node scripts/gen-latex-parser.mjs
 import { buildParserFile } from "@lezer/generator";
 import { readFileSync, writeFileSync } from "node:fs";
 

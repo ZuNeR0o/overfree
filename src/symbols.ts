@@ -90,7 +90,7 @@ function insertSymbol(view: EditorView, cmd: string) {
 }
 
 const preview = (cmd: string) => {
-  const tex = cmd.replace(/\{\}/g, "{x}").replace(/\[n\]/, "[n]");
+  const tex = cmd.replace(/\{\}/g, "{x}");
   try {
     return katex.renderToString(tex, { throwOnError: false, strict: "ignore", displayMode: false });
   } catch {

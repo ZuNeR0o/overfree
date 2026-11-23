@@ -1,7 +1,7 @@
 <#
   Publica una versión nueva de Folio en GitHub Releases con actualización automática.
 
-  Uso (desde folio-local):  .\scripts\release.ps1 -Version 0.1.5 -Notes "Qué cambió"
+  Uso (desde la raíz del repositorio):  .\scripts\release.ps1 -Version 0.1.5 -Notes "Qué cambió"
 
   Requisitos: gh (con sesión iniciada), Rust, Node, y la clave privada de firma en
   %USERPROFILE%\.tauri\folio-updater.key (NUNCA la subas al repositorio: sin ella no

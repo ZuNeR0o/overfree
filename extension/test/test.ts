@@ -1,0 +1,249 @@
+// Pruebas sin VS Code: compilación con un TeX simulado, detección del proyecto y los
+// módulos de Folio que reutiliza la extensión. `npm test`.
+
+import assert from "node:assert/strict";
+import { chmodSync, mkdtempSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import * as path from "node:path";
+import { gzipSync } from "node:zlib";
+import { checkProject } from "../../src/checks";
+import { parseLog } from "../../src/logparse";
+import { Parse } from "../../src/overleaf/linter/latex-linter.worker";
+import { errorsToDiagnostics } from "../../src/overleaf/linter/lint-core";
+import { forward, inverse, parseSynctex } from "../../src/synctex";
+import { parseTsv, toLatexTable } from "../../src/tables";
+import { CancelledError, compile, findTexBin, validMain } from "../src/compile";
+import { engineFromSource, resolveProject } from "../src/texproject";
+
+const tests: [string, () => Promise<void> | void][] = [];
+const test = (name: string, fn: () => Promise<void> | void) => tests.push([name, fn]);
+const tmp = () => mkdtempSync(path.join(tmpdir(), "folio-ext-"));
+
+// ---------- TeX simulado ----------
+// pdflatex: pasada 1 escribe \bibdata en el .aux; pasada 2 pide «Rerun»; pasada 3 termina.
+// FAKE_SLOW=1 hace que tarde 30 s (para probar la cancelación).
+function fakeTex(): string {
+  const bin = tmp();
+  const pdflatex = `#!/bin/sh
+for a; do case "$a" in -output-directory=*) OUT="\${a#-output-directory=}";; esac; done
+for a; do MAIN="$a"; done
+JOB=$(basename "$MAIN" .tex)
+N=$(cat "$OUT/count" 2>/dev/null || echo 0); N=$((N+1)); echo $N > "$OUT/count"
+[ -n "$FAKE_SLOW" ] && sleep 30
+if grep -q FATAL "$MAIN"; then echo "! Emergency stop." > "$OUT/$JOB.log"; exit 1; fi
+printf '%s\\n' '\\bibdata{refs}' > "$OUT/$JOB.aux"
+if [ "$N" = 2 ]; then echo "LaTeX Warning: Label(s) may have changed. Rerun to get cross-references right." > "$OUT/$JOB.log";
+else printf '%s\\n' "(./$MAIN" "! Undefined control sequence." "l.3 \\\\foo" ")" > "$OUT/$JOB.log"; fi
+echo "%PDF-1.4 pasada $N" > "$OUT/$JOB.pdf"
+`;
+  const bibtex = `#!/bin/sh
+echo "$BIBINPUTS" > bibinputs.txt
+echo "bibtex $1" >> tools.txt
+`;
+  for (const [name, body] of [["pdflatex", pdflatex], ["bibtex", bibtex]]) {
+    writeFileSync(path.join(bin, name), body);
+    chmodSync(path.join(bin, name), 0o755);
+  }
+  return bin;
+}
+
+const isWin = process.platform === "win32";
+
+test("validMain: mismas reglas que la app", () => {
+  assert.ok(validMain("main.tex"));
+  assert.ok(validMain("tesis/main.tex"));
+  assert.ok(validMain("Mi tesis.tex"), "espacios en medio del nombre");
+  for (const bad of ["../main.tex", "/etc/x.tex", "-x.tex", "&fmt.tex", "a/-b.tex", "C:/a.tex", "main.txt", "a//b.tex",
+    " &fmt.tex", " \\input{x}.tex", "a \\input{x}.tex", "a\\b.tex", ".tex", "dir/.tex", "x{y}.tex", "100%.tex", "MAIN.TEX"]) {
+    assert.equal(validMain(bad), false, bad);
+  }
+});
+
+test("compile: pasadas, bibtex con el separador de rutas del sistema y PDF", async () => {
+  if (isWin) return;
+  const bin = fakeTex();
+  const root = tmp();
+  writeFileSync(path.join(root, "main.tex"), "\\documentclass{article}\n\\begin{document}\n\\foo\n\\end{document}\n");
+  mkdirSync(path.join(root, "capitulos"));
+  const r = await compile({ root, main: "main.tex", engine: "pdflatex", texPath: bin, signal: new AbortController().signal });
+  assert.equal(r.success, true);
+  assert.equal(r.passes, 3, "1: bibtex → 2: «Rerun» → 3: fin");
+  assert.equal(r.bin, bin);
+  const build = path.join(root, ".folio", "build");
+  assert.equal(readFileSync(path.join(build, "bibinputs.txt"), "utf8").trim(), root + ":", "BIBINPUTS con ':' fuera de Windows");
+  assert.equal(readFileSync(path.join(build, "tools.txt"), "utf8").trim(), "bibtex main", "bibtex una sola vez");
+  assert.ok(readFileSync(path.join(build, "main.pdf"), "utf8").includes("pasada 3"));
+  assert.ok(statSync(path.join(build, "capitulos")).isDirectory(), "subcarpetas replicadas en build/");
+  // el registro se interpreta con el parser de Folio
+  const problems = parseLog(r.log, ["main.tex"], "main.tex");
+  const err = problems.find((p) => p.level === "error");
+  assert.ok(err, "error del registro");
+  assert.equal(err!.file, "main.tex");
+  assert.equal(err!.line, 3);
+  assert.match(err!.message, /Comando no definido/);
+});
+
+test("compile: sin PDF no se muestra el de la compilación anterior", async () => {
+  if (isWin) return;
+  const bin = fakeTex();
+  const root = tmp();
+  writeFileSync(path.join(root, "main.tex"), "\\documentclass{article}\n");
+  await compile({ root, main: "main.tex", engine: "pdflatex", texPath: bin, signal: new AbortController().signal });
+  writeFileSync(path.join(root, "main.tex"), "FATAL\n");
+  const r = await compile({ root, main: "main.tex", engine: "pdflatex", texPath: bin, signal: new AbortController().signal });
+  assert.equal(r.success, false);
+  assert.equal(r.pdfPath, null);
+  assert.equal(r.passes, 1);
+});
+
+test("compile: cancelar mata el proceso y responde enseguida", async () => {
+  if (isWin) return;
+  const bin = fakeTex();
+  const root = tmp();
+  writeFileSync(path.join(root, "main.tex"), "\\documentclass{article}\n");
+  const ctrl = new AbortController();
+  process.env.FAKE_SLOW = "1";
+  const t0 = Date.now();
+  const p = compile({ root, main: "main.tex", engine: "pdflatex", texPath: bin, signal: ctrl.signal });
+  setTimeout(() => ctrl.abort(), 300);
+  await assert.rejects(p, CancelledError);
+  delete process.env.FAKE_SLOW;
+  assert.ok(Date.now() - t0 < 5000, "no espera a que termine el sleep de 30 s");
+});
+
+test("compile: error claro si no hay TeX", async () => {
+  const root = tmp();
+  writeFileSync(path.join(root, "main.tex"), "x");
+  const saved = process.env.PATH;
+  process.env.PATH = "";
+  try {
+    if (findTexBin(path.join(root, "no-existe"))) return; // hay TeX en rutas fijas del sistema
+    await assert.rejects(compile({ root, main: "main.tex", engine: "pdflatex", texPath: path.join(root, "no-existe"), signal: new AbortController().signal }), /No se encontró TeX/);
+  } finally {
+    process.env.PATH = saved;
+  }
+});
+
+test("resolveProject: proyecto de Folio, % !TEX root y \\documentclass", async () => {
+  const ws = tmp();
+  // proyecto de la app Folio en una subcarpeta
+  const folio = path.join(ws, "tesis");
+  mkdirSync(path.join(folio, ".folio"), { recursive: true });
+  mkdirSync(path.join(folio, "cap"));
+  writeFileSync(path.join(folio, ".folio", "project.json"), JSON.stringify({ main: "tesis.tex", engine: "lualatex" }));
+  writeFileSync(path.join(folio, "cap", "uno.tex"), "\\section{Uno}");
+  let p = await resolveProject(path.join(folio, "cap", "uno.tex"), { workspaceRoot: ws });
+  assert.deepEqual(p, { root: folio, main: "tesis.tex", engine: "lualatex", folio: true });
+
+  // % !TEX root
+  const art = path.join(ws, "articulo");
+  mkdirSync(path.join(art, "secciones"), { recursive: true });
+  writeFileSync(path.join(art, "principal.tex"), "\\documentclass{article}\n\\usepackage{fontspec}\n");
+  writeFileSync(path.join(art, "secciones", "intro.tex"), "% !TEX root = ../principal.tex\nHola");
+  p = await resolveProject(path.join(art, "secciones", "intro.tex"), { workspaceRoot: ws });
+  assert.deepEqual(p, { root: art, main: "principal.tex", engine: "xelatex", folio: false });
+
+  // el ajuste del motor manda sobre la detección
+  p = await resolveProject(path.join(art, "principal.tex"), { workspaceRoot: ws, engine: "pdflatex" });
+  assert.equal(p?.engine, "pdflatex");
+
+  // sin pistas: el main.tex del espacio de trabajo
+  const ws2 = tmp();
+  writeFileSync(path.join(ws2, "otro.tex"), "\\documentclass{book}");
+  mkdirSync(path.join(ws2, "src"));
+  writeFileSync(path.join(ws2, "src", "main.tex"), "\\documentclass{article}");
+  writeFileSync(path.join(ws2, "suelto.tex"), "texto");
+  p = await resolveProject(path.join(ws2, "suelto.tex"), { workspaceRoot: ws2 });
+  assert.equal(p?.root, path.join(ws2, "src"));
+  assert.equal(p?.main, "main.tex");
+});
+
+test("seguridad: motor desconocido y % !TEX root fuera del espacio de trabajo", async () => {
+  const root = tmp();
+  writeFileSync(path.join(root, "main.tex"), "\\documentclass{article}");
+  await assert.rejects(
+    compile({ root, main: "main.tex", engine: "../../bin/sh" as never, texPath: fakeTex(), signal: new AbortController().signal }),
+    /Motor no válido/,
+  );
+  const p = await resolveProject(path.join(root, "main.tex"), { workspaceRoot: root, engine: "../../bin/sh" as never });
+  assert.equal(p?.engine, "pdflatex", "un ajuste de motor raro se ignora");
+  const ws = tmp();
+  writeFileSync(path.join(ws, "cap.tex"), `% !TEX root = ${path.join(root, "main.tex")}\nHola`);
+  assert.equal(await resolveProject(path.join(ws, "cap.tex"), { workspaceRoot: ws }), null);
+});
+
+test("engineFromSource", () => {
+  assert.equal(engineFromSource("% !TEX program = lualatex\n\\documentclass{article}"), "lualatex");
+  assert.equal(engineFromSource("\\usepackage[math]{unicode-math}"), "xelatex");
+  assert.equal(engineFromSource("% \\usepackage{fontspec}\n\\documentclass{article}"), null);
+});
+
+test("revisión en vivo: linter de Overleaf sin Worker", () => {
+  const text = "\\begin{itemize}\n\\item a\n";
+  const errors = Parse(text).errors;
+  const ds = errorsToDiagnostics(errors, -1, text.length);
+  assert.ok(ds.length > 0);
+  assert.match(ds[0].message, /sin cerrar/);
+  assert.equal(Parse("\\begin{itemize}\\item a\\end{itemize}").errors.length, 0);
+});
+
+test("revisión del proyecto", () => {
+  const problems = checkProject([
+    { path: "main.tex", text: "\\documentclass{article}\\begin{document}\\ref{nada}\\cite{x}\\includegraphics{fig.png}\\end{document}" },
+    { path: "refs.bib", text: "@article{y, title={T}}" },
+  ]);
+  const msgs = problems.map((p) => p.message).join("\n");
+  assert.match(msgs, /\\ref\{nada\}/);
+  assert.match(msgs, /Cita «x»/);
+  assert.match(msgs, /fig\.png/);
+});
+
+test("tablas desde Excel", () => {
+  const rows = parseTsv("Muestra\tMasa\nA\t1.5\nB\t2.25\n")!;
+  const tex = toLatexTable(rows, { siunitx: true, booktabs: true });
+  assert.match(tex, /\\begin\{tabular\}\{lS\}/);
+  assert.match(tex, /\\toprule/);
+});
+
+test("SyncTeX: ida y vuelta", async () => {
+  // unidades en sp (1 bp = 65781.76 sp); una caja horizontal de main.tex:10 en la página 1
+  const syn = [
+    "SyncTeX Version:1",
+    "Input:1:/proyecto/./main.tex",
+    "Output:pdf",
+    "Magnification:1000",
+    "Unit:1",
+    "X Offset:0",
+    "Y Offset:0",
+    "Content:",
+    "{1",
+    "[1,10:6578176,13156352:32890880,657818,0",
+    "h1,10:6578176,13156352:32890880,657818,0",
+    "]",
+    "}1",
+    "Postamble:",
+    "",
+  ].join("\n");
+  const data = await parseSynctex(new Uint8Array(gzipSync(syn)), ["main.tex"]);
+  const fwd = forward(data, "main.tex", 10);
+  assert.ok(fwd, "forward");
+  assert.equal(fwd!.page, 1);
+  const inv = inverse(data, 1, fwd!.left + 5, (fwd!.top + fwd!.bottom) / 2);
+  assert.deepEqual(inv, { file: "main.tex", line: 10 });
+});
+
+async function main() {
+  let failed = 0;
+  for (const [name, fn] of tests) {
+    try {
+      await fn();
+      console.log(`  ✓ ${name}`);
+    } catch (e) {
+      failed++;
+      console.log(`  ✗ ${name}\n    ${e instanceof Error ? (e.stack ?? e.message) : e}`);
+    }
+  }
+  console.log(failed ? `\n${failed} prueba(s) fallida(s)` : `\n${tests.length} pruebas correctas`);
+  process.exit(failed ? 1 : 0);
+}
+void main();

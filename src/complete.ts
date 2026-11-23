@@ -181,7 +181,6 @@ export function latexCompletions(index: ProjectIndex) {
       // admite varias claves separadas por comas
       const lastComma = typed.lastIndexOf(",");
       const from = ctx.pos - (typed.length - lastComma - 1);
-      const word = typed.slice(lastComma + 1);
       let options: Completion[] | null = null;
       if (cmd === "begin" || cmd === "end") {
         if (cmd === "end") {
@@ -234,21 +233,4 @@ export function latexCompletions(index: ProjectIndex) {
 
 // ---------- Índice del proyecto ----------
 
-export function extractLabels(texts: string[]) {
-  const out = new Set<string>();
-  for (const t of texts) for (const m of t.matchAll(/\\label\{([^}]+)\}/g)) out.add(m[1]);
-  return [...out];
-}
-
-export function extractBibEntries(bibs: string[]) {
-  const out: { key: string; info: string }[] = [];
-  for (const b of bibs) {
-    for (const m of b.matchAll(/@(\w+)\s*\{\s*([^,\s]+)\s*,([\s\S]*?)(?=\n\s*@|$)/g)) {
-      if (/^(comment|string|preamble)$/i.test(m[1])) continue;
-      const title = /title\s*=\s*[{"]+([^}"]+)/i.exec(m[3])?.[1] ?? "";
-      const year = /year\s*=\s*[{"]?(\d{4})/i.exec(m[3])?.[1] ?? "";
-      out.push({ key: m[2], info: [title.slice(0, 60), year].filter(Boolean).join(" · ") });
-    }
-  }
-  return out;
-}
+export { extractLabels, extractBibEntries } from "./refs";

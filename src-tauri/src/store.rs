@@ -46,7 +46,7 @@ fn now_ms() -> u64 {
         .unwrap_or_default()
 }
 
-pub fn new_id() -> String {
+fn new_id() -> String {
     let t = now_ms();
     let r = {
         use std::collections::hash_map::RandomState;
@@ -172,14 +172,18 @@ impl Store {
         let _g = self.lock.lock().map_err(e)?;
         let mut out = vec![];
         let mut keep = vec![];
-        for en in self.entries() {
+        let entries = self.entries();
+        let total = entries.len();
+        for en in entries {
             if let Some(meta) = read_json(&Self::meta_path(&en.dir)) {
                 out.push(Self::with_dir(meta, &en.dir));
                 keep.push(en);
             }
         }
-        // olvida proyectos cuya carpeta ya no existe
-        self.save_entries(&keep)?;
+        // olvida proyectos cuya carpeta ya no existe (solo escribe si hubo alguno)
+        if keep.len() != total {
+            self.save_entries(&keep)?;
+        }
         out.sort_by_key(|m| std::cmp::Reverse(m["updated"].as_u64().unwrap_or(0)));
         Ok(Value::Array(out))
     }

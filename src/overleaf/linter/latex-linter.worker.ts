@@ -2332,14 +2332,5 @@ if (typeof onmessage !== 'undefined') {
     }
   }
 }
-// export dummy class for testing
-export default class LintWorker {
-  // unused vars kept to document the interface
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  postMessage(message: string) {}
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  addEventListener(eventName: string, listener: () => void) {}
-  Parse(text: string) {
-    return Parse(text)
-  }
-}
+// Uso directo (sin Worker), p. ej. desde la extensión de VS Code.
+export { Parse }

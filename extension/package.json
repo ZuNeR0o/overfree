@@ -1,0 +1,116 @@
+{
+  "name": "folio-latex",
+  "displayName": "Folio LaTeX",
+  "description": "Lo mejor de Folio dentro de VS Code y Antigravity: compilación con el TeX del sistema, errores explicados en español, visor PDF con SyncTeX, revisión en vivo, revisión del proyecto, tablas desde Excel/CSV y referencias por DOI.",
+  "version": "0.1.0",
+  "publisher": "zuner0o",
+  "license": "AGPL-3.0-only",
+  "icon": "media/icon.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ZuNeR0o/overfree",
+    "directory": "extension"
+  },
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Linters",
+    "Other"
+  ],
+  "keywords": [
+    "latex",
+    "tex",
+    "pdf",
+    "synctex",
+    "folio"
+  ],
+  "main": "./dist/extension.js",
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": "limited",
+      "description": "En carpetas no fiables se ignoran folio.texPath y folio.shellEscape del espacio de trabajo (podrían ejecutar programas).",
+      "restrictedConfigurations": ["folio.texPath", "folio.shellEscape"]
+    }
+  },
+  "activationEvents": [
+    "onLanguage:latex",
+    "onLanguage:tex",
+    "workspaceContains:**/.folio/project.json"
+  ],
+  "contributes": {
+    "commands": [
+      { "command": "folio.compile", "title": "Compilar", "category": "Folio", "icon": "$(play)" },
+      { "command": "folio.cancel", "title": "Cancelar compilación", "category": "Folio", "icon": "$(debug-stop)" },
+      { "command": "folio.showPdf", "title": "Ver PDF", "category": "Folio", "icon": "$(open-preview)" },
+      { "command": "folio.syncForward", "title": "Ir al PDF (SyncTeX)", "category": "Folio" },
+      { "command": "folio.checkProject", "title": "Revisar el proyecto", "category": "Folio" },
+      { "command": "folio.pasteTable", "title": "Pegar como tabla LaTeX", "category": "Folio" },
+      { "command": "folio.addReferenceByDoi", "title": "Añadir referencia por DOI", "category": "Folio" },
+      { "command": "folio.clean", "title": "Borrar archivos auxiliares", "category": "Folio" },
+      { "command": "folio.showLog", "title": "Ver registro de compilación", "category": "Folio" }
+    ],
+    "keybindings": [
+      { "command": "folio.compile", "key": "ctrl+alt+b", "mac": "cmd+alt+b", "when": "editorLangId == latex || editorLangId == tex" },
+      { "command": "folio.syncForward", "key": "ctrl+alt+j", "mac": "cmd+alt+j", "when": "editorLangId == latex || editorLangId == tex" },
+      {
+        "command": "folio.cancel",
+        "key": "escape",
+        "when": "folio.compiling && editorTextFocus && !suggestWidgetVisible && !findWidgetVisible && !inSnippetMode && !parameterHintsVisible"
+      }
+    ],
+    "menus": {
+      "editor/title": [
+        { "command": "folio.compile", "when": "(editorLangId == latex || editorLangId == tex) && !folio.compiling", "group": "navigation@1" },
+        { "command": "folio.cancel", "when": "(editorLangId == latex || editorLangId == tex) && folio.compiling", "group": "navigation@1" },
+        { "command": "folio.showPdf", "when": "editorLangId == latex || editorLangId == tex", "group": "navigation@2" }
+      ],
+      "editor/context": [
+        { "command": "folio.pasteTable", "when": "editorLangId == latex || editorLangId == tex", "group": "9_cutcopypaste@9" },
+        { "command": "folio.addReferenceByDoi", "when": "editorLangId == latex || editorLangId == tex", "group": "folio@1" }
+      ]
+    },
+    "configuration": {
+      "title": "Folio",
+      "properties": {
+        "folio.engine": {
+          "type": "string",
+          "enum": ["auto", "pdflatex", "xelatex", "lualatex"],
+          "default": "auto",
+          "markdownDescription": "Motor de LaTeX. `auto`: el de `.folio/project.json` o `% !TEX program`, y si no, XeLaTeX cuando el documento carga `fontspec`/`unicode-math`/`polyglossia` y pdfLaTeX en el resto."
+        },
+        "folio.mainFile": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Archivo principal relativo a la carpeta del espacio de trabajo (p. ej. `tesis/main.tex`). Vacío: se adivina (`.folio/project.json`, `% !TEX root`, el archivo con `\\documentclass`)."
+        },
+        "folio.texPath": {
+          "type": "string",
+          "default": "",
+          "description": "Carpeta con los ejecutables de TeX (pdflatex, biber…). Vacío: se buscan en PATH, MiKTeX y TeX Live."
+        },
+        "folio.compileOnSave": { "type": "boolean", "default": true, "description": "Compilar al guardar un archivo .tex, .bib o .sty." },
+        "folio.shellEscape": { "type": "boolean", "default": false, "markdownDescription": "Pasar `-shell-escape` (necesario para `minted`). Permite al documento ejecutar programas: actívalo solo con documentos de confianza." },
+        "folio.pdf.openAfterCompile": { "type": "boolean", "default": true, "description": "Abrir el visor PDF al lado tras compilar con éxito." },
+        "folio.pdf.invertInDarkTheme": { "type": "boolean", "default": false, "description": "Invertir los colores del PDF con un tema oscuro." },
+        "folio.lint.enabled": { "type": "boolean", "default": true, "description": "Revisión en vivo (entornos sin cerrar, $ sueltos, comandos matemáticos fuera de modo matemático…), sin compilar." },
+        "folio.checks.enabled": { "type": "boolean", "default": true, "description": "Revisión del proyecto al guardar: etiquetas repetidas, \\ref y \\cite rotos, imágenes que faltan, sin → \\sin…" }
+      }
+    }
+  },
+  "scripts": {
+    "build": "node build.mjs",
+    "watch": "node build.mjs --watch",
+    "typecheck": "tsc --noEmit -p .",
+    "test": "node build.mjs --test && node dist/test.js",
+    "package": "node build.mjs --production && vsce package --no-dependencies --out folio-latex.vsix"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@types/vscode": "1.85.0",
+    "@vscode/vsce": "^3.2.0",
+    "esbuild": "^0.25.0",
+    "typescript": "^5.6.0"
+  }
+}
