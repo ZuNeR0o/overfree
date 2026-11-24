@@ -1,5 +1,5 @@
 ﻿/*
-  Dirección visual de Folio: estudio editorial tranquilo y ordenado.
+  Dirección visual de Overfree: estudio editorial tranquilo y ordenado.
   Verde bosque y salvia sobre blancos cálidos y grises verdosos; esquinas discretas,
   bordes finos, superficies planas. Sin gradientes ni estética de marketing.
   Los nombres de los tokens son los semánticos de shadcn.
@@ -112,7 +112,8 @@ button:disabled { cursor: default; }
   background: var(--background);
   min-width: 0;
 }
-.brand { font-weight: 600; letter-spacing: 0.01em; margin: 0 4px; }
+.brand { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; letter-spacing: 0.01em; margin: 0 4px; }
+.brand-logo { width: 20px; height: 20px; }
 .sep { width: 1px; height: 20px; background: var(--border); }
 .btn {
   display: inline-flex;

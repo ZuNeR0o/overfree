@@ -1,4 +1,4 @@
-// Visor PDF de Folio en un panel de VS Code: el mismo PdfViewer (pdf.js) de la app, con
+// Visor PDF de Overfree en un panel de VS Code: el mismo PdfViewer (pdf.js) de la app, con
 // SyncTeX en los dos sentidos. El SyncTeX se interpreta aquí (extensión) y el webview
 // solo dibuja y avisa de los dobles clics y enlaces.
 
@@ -118,7 +118,7 @@ export class PdfPanel implements vscode.Disposable {
     } else if (m.type === "inverse") {
       if (![m.page, m.x, m.y].every(Number.isFinite)) return;
       if (!this.sync || !this.project) {
-        void vscode.window.showInformationMessage("Folio: este PDF no tiene datos de SyncTeX.");
+        void vscode.window.showInformationMessage("Overfree: este PDF no tiene datos de SyncTeX.");
         return;
       }
       const hit = inverse(this.sync, m.page, m.x, m.y);
@@ -133,7 +133,7 @@ export class PdfPanel implements vscode.Disposable {
       try {
         await vscode.window.showTextDocument(uri, { viewColumn: column, selection: new vscode.Range(pos, pos) });
       } catch {
-        void vscode.window.showWarningMessage(`Folio: no se puede abrir ${hit.file}.`);
+        void vscode.window.showWarningMessage(`Overfree: no se puede abrir ${hit.file}.`);
       }
     }
   }

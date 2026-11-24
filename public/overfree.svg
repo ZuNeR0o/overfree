@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <!-- Logo de Overfree: la «O» abierta y el cubículo 246, donde nació -->
+  <rect width="512" height="512" rx="112" fill="#2f5d46"/>
+  <path d="M 353.5 116.7 A 170 170 0 1 0 410.1 184.2" fill="none" stroke="#ffffff" stroke-width="46" stroke-linecap="round"/>
+  <circle cx="386.2" cy="146.7" r="17" fill="#e9c46a"/>
+  <text x="256" y="299" text-anchor="middle" font-family="DejaVu Sans, Verdana, sans-serif" font-weight="bold" font-size="120" letter-spacing="-4" fill="#e9c46a">246</text>
+</svg>

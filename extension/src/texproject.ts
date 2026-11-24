@@ -1,7 +1,7 @@
 // Qué proyecto LaTeX corresponde a un archivo: carpeta raíz, archivo principal y motor.
 // Sin dependencias de VS Code, para poder probarlo con Node.
 //
-// Orden: 1) proyecto de Folio (.folio/project.json en la carpeta o en una superior),
+// Orden: 1) proyecto de Overfree (.folio/project.json en la carpeta o en una superior),
 // 2) `% !TEX root = …`, 3) el propio archivo si tiene \documentclass, 4) el ajuste
 // folio.mainFile, 5) el archivo con \documentclass del espacio de trabajo (mejor main.tex).
 
@@ -17,7 +17,7 @@ export type TexProject = {
   /** Archivo principal relativo a `root`, con barras normales. */
   main: string;
   engine: Engine;
-  /** Si viene de un proyecto de la app Folio (.folio/project.json). */
+  /** Si viene de un proyecto de la app Overfree (.folio/project.json). */
   folio: boolean;
 };
 
@@ -79,7 +79,7 @@ export function engineFromSource(text: string): Engine | null {
   return null;
 }
 
-/** Igual que Folio: el que tiene \documentclass, preferiblemente main.tex y poco profundo. */
+/** Igual que Overfree: el que tiene \documentclass, preferiblemente main.tex y poco profundo. */
 export async function guessMain(root: string, files: string[]): Promise<string | null> {
   const docs: string[] = [];
   for (const f of files.filter((f) => /\.tex$/i.test(f)).slice(0, 400)) {
@@ -104,7 +104,7 @@ export async function resolveProject(file: string, opts: ResolveOptions = {}): P
   // el ajuste puede venir de un .vscode/settings.json ajeno: solo motores conocidos
   const setting = asEngine(opts.engine);
 
-  // 1. proyecto de la app Folio
+  // 1. proyecto de la app Overfree
   for (let dir = path.dirname(file); ; dir = path.dirname(dir)) {
     const meta = await readJson(path.join(dir, ".folio", "project.json"));
     if (meta && typeof meta.main === "string" && meta.main.endsWith(".tex")) {

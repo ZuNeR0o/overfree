@@ -281,7 +281,7 @@ impl Store {
         Ok(Value::Array(out))
     }
 
-    /// Lista ligera (ruta, tamaño, fecha) para detectar cambios hechos fuera de Folio.
+    /// Lista ligera (ruta, tamaño, fecha) para detectar cambios hechos fuera de Overfree.
     pub fn manifest(&self, id: &str) -> Res<Value> {
         let root = self.dir_of(id)?;
         let out = self

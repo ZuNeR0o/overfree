@@ -1,5 +1,5 @@
 // Pruebas sin VS Code: compilación con un TeX simulado, detección del proyecto y los
-// módulos de Folio que reutiliza la extensión. `npm test`.
+// módulos de Overfree que reutiliza la extensión. `npm test`.
 
 import assert from "node:assert/strict";
 import { chmodSync, mkdtempSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
@@ -74,7 +74,7 @@ test("compile: pasadas, bibtex con el separador de rutas del sistema y PDF", asy
   assert.equal(readFileSync(path.join(build, "tools.txt"), "utf8").trim(), "bibtex main", "bibtex una sola vez");
   assert.ok(readFileSync(path.join(build, "main.pdf"), "utf8").includes("pasada 3"));
   assert.ok(statSync(path.join(build, "capitulos")).isDirectory(), "subcarpetas replicadas en build/");
-  // el registro se interpreta con el parser de Folio
+  // el registro se interpreta con el parser de Overfree
   const problems = parseLog(r.log, ["main.tex"], "main.tex");
   const err = problems.find((p) => p.level === "error");
   assert.ok(err, "error del registro");
@@ -124,9 +124,9 @@ test("compile: error claro si no hay TeX", async () => {
   }
 });
 
-test("resolveProject: proyecto de Folio, % !TEX root y \\documentclass", async () => {
+test("resolveProject: proyecto de Overfree, % !TEX root y \\documentclass", async () => {
   const ws = tmp();
-  // proyecto de la app Folio en una subcarpeta
+  // proyecto de la app Overfree en una subcarpeta
   const folio = path.join(ws, "tesis");
   mkdirSync(path.join(folio, ".folio"), { recursive: true });
   mkdirSync(path.join(folio, "cap"));

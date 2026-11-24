@@ -280,7 +280,7 @@ class DesktopBackend implements Backend {
   }
 
   // extras de escritorio
-  /** Ruta, tamaño y fecha de cada archivo: sirve para notar cambios hechos fuera de Folio. */
+  /** Ruta, tamaño y fecha de cada archivo: sirve para notar cambios hechos fuera de Overfree. */
   manifest(id: string) {
     return this.json<{ path: string; size: number; mtime: number }[]>("GET", `${this.p(id)}/manifest`);
   }

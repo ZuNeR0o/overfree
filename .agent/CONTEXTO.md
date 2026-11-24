@@ -1,7 +1,7 @@
-# Folio (repo `overfree`) — Mapa del proyecto
+# Overfree (repo `overfree`) — Mapa del proyecto
 
 > Editor LaTeX local y sin conexión (web + escritorio Tauri). Licencia AGPL-3.0.
-> Repo: https://github.com/ZuNeR0o/overfree · Producto: **Folio** · Versión actual: **0.1.7**
+> Repo: https://github.com/ZuNeR0o/overfree · Producto: **Overfree** · Versión actual: **0.1.7**
 > Generado con `agy` (gemini-4-hydrogen-medium) y verificado a mano el 2026-11-23.
 > Los números de línea caducan con cada cambio: si no cuadran, vuelve a pedirlos a `agy`.
 
@@ -149,9 +149,10 @@ PDF → pdfview.ts (pdf.js) · synctex.ts (forward / inverse) · pdfwindow.ts (v
 - `node scripts/gen-latex-parser.mjs` — regenera el parser Lezer tras tocar `latex.grammar`
 - Release: `./scripts/release.sh X.Y.Z "notas"` (Linux: AppImage + .deb + NSIS Windows con `cargo-xwin`)
   o `.\scripts\release.ps1 -Version X.Y.Z -Notes "..."` (Windows). Firma con `~/.tauri/folio-updater.key`,
-  genera `latest.json`, commit "Folio X.Y.Z", tag `vX.Y.Z` y GitHub Release con `gh`.
+  genera `latest.json`, commit "Overfree X.Y.Z", tag `vX.Y.Z` y GitHub Release con `gh`.
 
 ## 7. Gotchas
+- **Nombre:** la app se llamaba Folio; el nombre visible es **Overfree** (`productName`, títulos, UI, logo `public/overfree.svg` con el cubículo 246). Se conservan a propósito: carpeta de datos `Documentos\Folio`, `X-Folio-Token`, `identifier` `app.folio.editor`, crate `folio`, clave `~/.tauri/folio-updater.key`, IDs `folio.*` y `.folio/` de proyecto. `src-tauri/windows/hooks.nsh` desinstala en silencio la «Folio» antigua en Windows; el `.deb` declara `Conflicts/Replaces: folio`.
 
 - `tauri.conf.json`: `frontendDist` apunta a `../shell` (página mínima); la web real (`dist/`) va como
   recurso `web/` y la sirve `tiny_http` desde disco, para no incrustar ~700 MB de BusyTeX en el binario.
@@ -187,7 +188,7 @@ Observaciones:
 - **Sin macOS:** no hay `.dmg`/`.app`; `latest.json` solo cubre Windows y Linux.
 - 0.1.2 se hizo commit pero no tiene release; 0.1.3 no aparece ni en el historial.
 - No hay `CHANGELOG.md`: las notas de versión solo viven en GitHub Releases y en los mensajes de commit.
-- El repo se llama `overfree` y el producto `Folio`. `release.sh` usa `REPO=overfree` por defecto y saca
+- El repo se llama `overfree` y el producto `Overfree`. `release.sh` usa `REPO=overfree` por defecto y saca
   el owner con `gh api user`.
 
 ## 9. Extensión VS Code / Antigravity (`extension/`)
@@ -196,10 +197,10 @@ Un `.vsix` para los dos (Antigravity es fork de VS Code). Reutiliza `../src` ví
 
 | Ruta | Responsabilidad |
 | --- | --- |
-| `extension/src/extension.ts` | `activate`: comandos, barra de estado, vista lateral `folio.actions` (icono en la barra de actividad, `media/folio.svg`), compilar al guardar, lint/checks con debounce |
+| `extension/src/extension.ts` | `activate`: comandos, barra de estado, vista lateral `folio.actions` (icono en la barra de actividad, `media/overfree.svg`), compilar al guardar, lint/checks con debounce |
 | `extension/src/compile.ts` | Port de `native.rs` (mismas pasadas, `.folio/build`, cancelación por grupo de procesos) |
 | `extension/src/texproject.ts` | Raíz/principal/motor: `.folio/project.json` → `% !TEX root` → `\documentclass` → ajuste → adivinar |
-| `extension/src/diagnostics.ts` | Colecciones «Folio · LaTeX / Revisión / Proyecto» (`parseLog`, `Parse`, `checkProject`) |
+| `extension/src/diagnostics.ts` | Colecciones «Overfree · LaTeX / Revisión / Proyecto» (`parseLog`, `Parse`, `checkProject`) |
 | `extension/src/pdfPanel.ts` | Webview del PDF, SyncTeX en la extensión, CSP con nonce |
 | `extension/webview/pdf.ts` | Usa `src/pdfview.ts`; worker de pdf.js desde blob |
 | `extension/src/tools.ts` | Tablas desde portapapeles/CSV, figura al soltar imagen, DOI → BibTeX |

@@ -27,7 +27,7 @@ async fn check(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
     };
     let notes = update.body.clone().unwrap_or_default();
     let question = format!(
-        "Hay una versión nueva de Folio: {} (tienes la {}).\n\n{}\n\n¿Descargarla e instalarla ahora? Tus proyectos no se tocan.",
+        "Hay una versión nueva de Overfree: {} (tienes la {}).\n\n{}\n\n¿Descargarla e instalarla ahora? Tus proyectos no se tocan.",
         update.version,
         update.current_version,
         notes.chars().take(600).collect::<String>()
@@ -58,13 +58,13 @@ async fn check(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
                     let pct = downloaded * 100 / t.max(1);
                     if pct != last_pct {
                         last_pct = pct;
-                        let _ = w.set_title(&format!("Folio — descargando actualización {pct} %"));
+                        let _ = w.set_title(&format!("Overfree — descargando actualización {pct} %"));
                     }
                 }
             },
             || {
                 if let Some(w) = app.get_webview_window("main") {
-                    let _ = w.set_title("Folio — instalando actualización…");
+                    let _ = w.set_title("Overfree — instalando actualización…");
                 }
             },
         )

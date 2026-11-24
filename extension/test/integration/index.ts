@@ -69,8 +69,8 @@ export async function run() {
     for (const c of ["folio.compile", "folio.syncForward", "folio.pasteTable", "folio.addReferenceByDoi"]) assert.ok(cmds.includes(c), c);
   });
 
-  await step("icono de Folio en la barra de actividad", async () => {
-    assert.ok(existsSync(path.join(ext.extensionPath, "media", "folio.svg")), "media/folio.svg en el paquete");
+  await step("icono de Overfree en la barra de actividad", async () => {
+    assert.ok(existsSync(path.join(ext.extensionPath, "media", "overfree.svg")), "media/overfree.svg en el paquete");
     await vscode.commands.executeCommand("workbench.view.extension.folio");
     await sleep(3000);
     shot("0-barra-lateral");

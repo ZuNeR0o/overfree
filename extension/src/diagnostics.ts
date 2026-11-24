@@ -1,7 +1,7 @@
-// Tres fuentes de problemas, como en Folio, cada una en su colección para que no se pisen:
-//  - "Folio · LaTeX": el registro de la última compilación (errores traducidos).
-//  - "Folio · Revisión": la revisión en vivo del archivo abierto (linter de Overleaf).
-//  - "Folio · Proyecto": la revisión del proyecto sin compilar (refs, citas, imágenes…).
+// Tres fuentes de problemas, como en Overfree, cada una en su colección para que no se pisen:
+//  - "Overfree · LaTeX": el registro de la última compilación (errores traducidos).
+//  - "Overfree · Revisión": la revisión en vivo del archivo abierto (linter de Overleaf).
+//  - "Overfree · Proyecto": la revisión del proyecto sin compilar (refs, citas, imágenes…).
 
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
@@ -38,9 +38,9 @@ function toDiagnostics(project: TexProject, problems: Problem[], source: string)
 }
 
 export class FolioDiagnostics implements vscode.Disposable {
-  readonly log = vscode.languages.createDiagnosticCollection("Folio · LaTeX");
-  readonly lint = vscode.languages.createDiagnosticCollection("Folio · Revisión");
-  readonly checks = vscode.languages.createDiagnosticCollection("Folio · Proyecto");
+  readonly log = vscode.languages.createDiagnosticCollection("Overfree · LaTeX");
+  readonly lint = vscode.languages.createDiagnosticCollection("Overfree · Revisión");
+  readonly checks = vscode.languages.createDiagnosticCollection("Overfree · Proyecto");
 
   setLog(project: TexProject, problems: Problem[]) {
     this.log.clear();

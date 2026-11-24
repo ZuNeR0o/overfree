@@ -40,7 +40,7 @@ channel.onmessage = async (ev: MessageEvent<PdfMessage>) => {
   const m = ev.data;
   if (m.type === "pdf") {
     $("empty").hidden = true;
-    document.title = `${m.name} · Folio`;
+    document.title = `${m.name} · Overfree`;
     await viewer.load(m.pdf);
   } else if (m.type === "reveal") {
     viewer.reveal(m.page, m.top, m.bottom, m.left, m.right);

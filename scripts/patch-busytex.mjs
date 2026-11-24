@@ -17,7 +17,7 @@ src = src.replace("'! Undefined control sequence.', ", "");
 
 // 3. Pasadas extra solo si hacen falta. El original siempre hace al menos tres
 //    (inicial + intermedia + final). Con los .aux de la compilación anterior
-//    (Folio los conserva), lo normal es que la pasada inicial ya sea la definitiva.
+//    (Overfree los conserva), lo normal es que la pasada inicial ya sea la definitiva.
 const RERUN_ORIG = "const rerun_enabled = rerun === null ? true : rerun;";
 const RERUN_NEW =
   "const rerun_enabled = (rerun === null ? true : rerun) && (bibtex || makeindex_active || (this._needs_rerun(last_log) && !this._folio_same_as_input(files, main_tex_path, logs, last_log))); /* folio:skip-passes */";

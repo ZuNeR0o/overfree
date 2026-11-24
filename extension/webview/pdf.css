@@ -1,4 +1,4 @@
-/* Visor PDF de Folio dentro de VS Code / Antigravity. Las reglas del visor son las de
+/* Visor PDF de Overfree dentro de VS Code / Antigravity. Las reglas del visor son las de
    src/style.css; los colores salen del tema del IDE (variables --vscode-*). */
 :root {
   --canvas: var(--vscode-editorWidget-background, #f3f5f2);

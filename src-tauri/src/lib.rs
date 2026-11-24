@@ -1,4 +1,4 @@
-//! Folio de escritorio.
+//! Overfree de escritorio.
 //!
 //! La interfaz y el motor LaTeX (BusyTeX, ~700 MB) se sirven desde disco con un
 //! servidor HTTP local en 127.0.0.1. Así todo comparte origen (el worker de
@@ -88,10 +88,10 @@ pub fn run() {
             let url: tauri::Url = origin.parse()?;
             let allowed = url.clone();
             WebviewWindowBuilder::new(app, "main", WebviewUrl::External(url))
-                // La ventana nunca sale de Folio (p. ej. al soltar un archivo fuera del árbol):
+                // La ventana nunca sale de Overfree (p. ej. al soltar un archivo fuera del árbol):
                 // así initialization_script, que lleva el token de la API, no llega a otra página.
                 .on_navigation(move |u| u.scheme() == allowed.scheme() && u.host_str() == allowed.host_str() && u.port() == allowed.port())
-                .title("Folio")
+                .title("Overfree")
                 .inner_size(1440.0, 900.0)
                 .min_inner_size(800.0, 500.0)
                 .initialization_script(&init)
@@ -106,5 +106,5 @@ pub fn run() {
             Ok(())
         })
         .run(tauri::generate_context!())
-        .expect("error al iniciar Folio");
+        .expect("error al iniciar Overfree");
 }

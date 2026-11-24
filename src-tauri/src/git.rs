@@ -75,7 +75,7 @@ fn check(o: Out) -> Res<String> {
     }
 }
 
-const GITIGNORE: &str = "# Generado por Folio\n.folio/\n*.aux\n*.log\n*.out\n*.toc\n*.lof\n*.lot\n*.synctex.gz\n*.fls\n*.fdb_latexmk\n*.bbl\n*.blg\n*.bcf\n*.run.xml\n*.nav\n*.snm\n*.vrb\n";
+const GITIGNORE: &str = "# Generado por Overfree\n.folio/\n*.aux\n*.log\n*.out\n*.toc\n*.lof\n*.lot\n*.synctex.gz\n*.fls\n*.fdb_latexmk\n*.bbl\n*.blg\n*.bcf\n*.run.xml\n*.nav\n*.snm\n*.vrb\n";
 
 pub fn status(dir: &Path) -> Res<Value> {
     if git_exe().is_none() {
@@ -153,7 +153,7 @@ pub fn commit(dir: &Path, message: &str, name: Option<&str>, email: Option<&str>
         check(run(dir, &["config", "user.email", m])?)?;
     }
     check(run(dir, &["add", "-A"])?)?;
-    let msg = if message.trim().is_empty() { "Cambios desde Folio" } else { message.trim() };
+    let msg = if message.trim().is_empty() { "Cambios desde Overfree" } else { message.trim() };
     // -m seguido del valor: git no lo interpreta como opción aunque empiece por '-'
     check(run(dir, &["commit", "-m", msg])?)
 }

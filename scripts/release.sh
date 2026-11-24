@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Publica una versión de Folio para Windows (.exe, compilado de forma cruzada) y Linux
+# Publica una versión de Overfree para Windows (.exe, compilado de forma cruzada) y Linux
 # (.AppImage con actualización automática y .deb) en GitHub Releases.
 #
 # Uso (desde la raíz del repositorio, en Linux):
@@ -55,9 +55,9 @@ npx tauri build --runner cargo-xwin --target x86_64-pc-windows-msvc --bundles ns
 
 LIN=src-tauri/target/release/bundle
 WIN=src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis
-APPIMAGE="$(ls "$LIN"/appimage/Folio_"${VERSION}"_*.AppImage)"
-DEB="$(ls "$LIN"/deb/Folio_"${VERSION}"_*.deb)"
-EXE="$WIN/Folio_${VERSION}_x64-setup.exe"
+APPIMAGE="$(ls "$LIN"/appimage/Overfree_"${VERSION}"_*.AppImage)"
+DEB="$(ls "$LIN"/deb/Overfree_"${VERSION}"_*.deb)"
+EXE="$WIN/Overfree_${VERSION}_x64-setup.exe"
 for f in "$APPIMAGE" "$APPIMAGE.sig" "$DEB" "$EXE" "$EXE.sig"; do
   [[ -f "$f" ]] || { echo "No se generó $f" >&2; exit 1; }
 done
@@ -83,9 +83,9 @@ PY
 
 # 4. commit, etiqueta y publicación
 git add src-tauri/tauri.conf.json src-tauri/Cargo.toml src-tauri/Cargo.lock
-git commit -q -m "Folio $VERSION" -m "$NOTES" || true
+git commit -q -m "Overfree $VERSION" -m "$NOTES" || true
 git tag "v$VERSION"
 git push -q origin main --tags
 gh release create "v$VERSION" "$EXE" "$APPIMAGE" "$DEB" "$LATEST" \
-  --repo "$OWNER/$REPO" --title "Folio $VERSION" --notes "$NOTES"
+  --repo "$OWNER/$REPO" --title "Overfree $VERSION" --notes "$NOTES"
 echo "Publicado: https://github.com/$OWNER/$REPO/releases/tag/v$VERSION"

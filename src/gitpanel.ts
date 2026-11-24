@@ -70,7 +70,7 @@ export function createGitPanel(root: HTMLElement, deps: Deps) {
     if (!st.available) {
       root.replaceChildren(
         h("p", { cls: "pad" }, "Git no está instalado en este equipo."),
-        h("p", { cls: "muted pad" }, "Instálalo desde git-scm.com y vuelve a abrir Folio."),
+        h("p", { cls: "muted pad" }, "Instálalo desde git-scm.com y vuelve a abrir Overfree."),
       );
       return;
     }

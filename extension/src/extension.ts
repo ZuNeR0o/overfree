@@ -1,4 +1,4 @@
-// Folio para VS Code y Antigravity (fork de VS Code): mismo .vsix para los dos.
+// Overfree para VS Code y Antigravity (fork de VS Code): mismo .vsix para los dos.
 
 import * as path from "node:path";
 import * as vscode from "vscode";
@@ -24,13 +24,13 @@ function debounce<A extends unknown[]>(ms: number, fn: (...a: A) => void) {
 let abortRunning: () => void = () => {};
 
 export function activate(ctx: vscode.ExtensionContext) {
-  const output = vscode.window.createOutputChannel("Folio");
+  const output = vscode.window.createOutputChannel("Overfree");
   const diags = new FolioDiagnostics();
   const pdf = new PdfPanel(ctx);
   const status = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 10);
   status.command = "folio.compile";
-  status.text = "$(file-pdf) Folio";
-  status.tooltip = "Compilar con Folio (Ctrl+Alt+B)";
+  status.text = "$(file-pdf) Overfree";
+  status.tooltip = "Compilar con Overfree (Ctrl+Alt+B)";
   ctx.subscriptions.push(output, diags, pdf, status);
 
   let lastProject: TexProject | null = null;
@@ -59,7 +59,7 @@ export function activate(ctx: vscode.ExtensionContext) {
   async function runCompile(auto: boolean, doc?: vscode.TextDocument) {
     const project = await projectFor(doc);
     if (!project) {
-      if (!auto) void vscode.window.showWarningMessage("Folio: abre un archivo .tex (con \\documentclass o con % !TEX root = …).");
+      if (!auto) void vscode.window.showWarningMessage("Overfree: abre un archivo .tex (con \\documentclass o con % !TEX root = …).");
       return;
     }
     // una compilación nueva sustituye a la que esté en marcha (en bucle: pudieron llegar varias)
@@ -71,7 +71,7 @@ export function activate(ctx: vscode.ExtensionContext) {
     let finish!: () => void;
     running = { ctrl, done: new Promise((r) => (finish = r)) };
     setCompiling(true);
-    status.text = "$(sync~spin) Folio: compilando…";
+    status.text = "$(sync~spin) Overfree: compilando…";
     status.tooltip = "Esc o clic: cancelar";
     status.command = "folio.cancel";
     const c = cfg(vscode.Uri.file(project.root));
@@ -95,17 +95,17 @@ export function activate(ctx: vscode.ExtensionContext) {
       const errors = problems.filter((p) => p.level === "error").length;
       const secs = ((Date.now() - started) / 1000).toFixed(1);
       if (r.success && r.pdfPath) {
-        status.text = errors ? `$(warning) Folio: ${errors} error(es)` : `$(check) Folio`;
+        status.text = errors ? `$(warning) Overfree: ${errors} error(es)` : `$(check) Overfree`;
         status.tooltip = `${project.main} · ${project.engine} · ${r.passes} pasada(s) · ${secs} s`;
         if (c.get<boolean>("pdf.openAfterCompile", true) || pdf.isOpen) await pdf.show(project, r.pdfPath, r.synctexPath);
       } else {
-        status.text = `$(error) Folio: sin PDF`;
+        status.text = `$(error) Overfree: sin PDF`;
         status.tooltip = `${errors} error(es). Clic: compilar de nuevo`;
         // al guardar basta con la barra de estado y la lista de problemas
         const choice = auto
           ? undefined
           : await vscode.window.showErrorMessage(
-          `Folio: la compilación de ${project.main} falló${errors ? ` con ${errors} error(es)` : ""}.`,
+          `Overfree: la compilación de ${project.main} falló${errors ? ` con ${errors} error(es)` : ""}.`,
           "Ver problemas",
           "Ver registro",
         );
@@ -114,15 +114,15 @@ export function activate(ctx: vscode.ExtensionContext) {
       }
     } catch (e) {
       if (e instanceof CancelledError) {
-        status.text = "$(circle-slash) Folio: cancelado";
+        status.text = "$(circle-slash) Overfree: cancelado";
       } else {
-        status.text = "$(error) Folio";
+        status.text = "$(error) Overfree";
         const msg = e instanceof Error ? e.message : String(e);
         const noTex = !findTexBin(c.get<string>("texPath") || undefined);
         if (auto && noTex && texWarned) return;
         texWarned ||= noTex;
         status.tooltip = msg;
-        const choice = await vscode.window.showErrorMessage(`Folio: ${msg}`, ...(noTex ? ["Ajustes"] : []));
+        const choice = await vscode.window.showErrorMessage(`Overfree: ${msg}`, ...(noTex ? ["Ajustes"] : []));
         if (choice === "Ajustes") void vscode.commands.executeCommand("workbench.action.openSettings", "folio.texPath");
       }
     } finally {
@@ -187,7 +187,7 @@ export function activate(ctx: vscode.ExtensionContext) {
   command("folio.showLog", () => output.show());
   command("folio.showPdf", async () => {
     const p = await projectFor();
-    if (!p) return void vscode.window.showWarningMessage("Folio: abre un archivo .tex del proyecto.");
+    if (!p) return void vscode.window.showWarningMessage("Overfree: abre un archivo .tex del proyecto.");
     const pdfPath = path.join(p.root, ".folio", "build", p.main.replace(/^.*[/\\]/, "").replace(/\.tex$/, ".pdf"));
     try {
       await pdf.show(p, pdfPath, pdfPath.replace(/\.pdf$/, ".synctex.gz"), false);
@@ -200,12 +200,12 @@ export function activate(ctx: vscode.ExtensionContext) {
     if (!ed) return;
     if (!pdf.isOpen) await vscode.commands.executeCommand("folio.showPdf");
     if (!pdf.revealSource(ed.document.fileName, ed.selection.active.line + 1)) {
-      vscode.window.setStatusBarMessage("Folio: no hay correspondencia en el PDF (compila de nuevo).", 4000);
+      vscode.window.setStatusBarMessage("Overfree: no hay correspondencia en el PDF (compila de nuevo).", 4000);
     }
   });
   command("folio.checkProject", async () => {
     const p = await projectFor();
-    if (!p) return void vscode.window.showWarningMessage("Folio: abre un archivo .tex del proyecto.");
+    if (!p) return void vscode.window.showWarningMessage("Overfree: abre un archivo .tex del proyecto.");
     await diags.checkProject(p);
     void vscode.commands.executeCommand("workbench.actions.view.problems");
   });
@@ -213,12 +213,12 @@ export function activate(ctx: vscode.ExtensionContext) {
   command("folio.addReferenceByDoi", async () => addReferenceByDoi(await projectFor()));
   command("folio.clean", async () => {
     const p = await projectFor();
-    if (!p) return void vscode.window.showWarningMessage("Folio: abre un archivo .tex del proyecto.");
+    if (!p) return void vscode.window.showWarningMessage("Overfree: abre un archivo .tex del proyecto.");
     await cleanBuild(p.root);
-    vscode.window.setStatusBarMessage(`Folio: auxiliares de ${p.main} borrados.`, 4000);
+    vscode.window.setStatusBarMessage(`Overfree: auxiliares de ${p.main} borrados.`, 4000);
   });
 
-  // Barra lateral (icono de Folio en la barra de actividad): accesos directos a los comandos
+  // Barra lateral (icono de Overfree en la barra de actividad): accesos directos a los comandos
   const actions: [string, string, string, unknown[]?][] = [
     ["Compilar", "play", "folio.compile"],
     ["Ver PDF", "open-preview", "folio.showPdf"],

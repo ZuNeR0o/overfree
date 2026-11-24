@@ -1,15 +1,15 @@
-# Folio LaTeX para VS Code y Antigravity
+# Overfree LaTeX para VS Code y Antigravity
 
-Las herramientas de [Folio](https://github.com/ZuNeR0o/overfree) dentro de tu editor. Funciona en
+Las herramientas de [Overfree](https://github.com/ZuNeR0o/overfree) dentro de tu editor. Funciona en
 **VS Code** y en **Google Antigravity** (que es un fork de VS Code): el mismo `.vsix` sirve para los dos.
 
 ## Funciones
 
-- **Icono de Folio en la barra de actividad** (a la izquierda, como PlatformIO): abre la vista
+- **Icono de Overfree en la barra de actividad** (a la izquierda, como PlatformIO): abre la vista
   *Acciones* con todos los comandos a un clic.
 - **Compilar** (`Ctrl+Alt+B`, botón ▶ o al guardar) con el TeX del sistema (MiKTeX o TeX Live):
   pdfLaTeX, XeLaTeX o LuaLaTeX, con BibTeX, Biber, glosarios y makeindex automáticos y las pasadas
-  que haga falta. Los auxiliares van a `.folio/build/`, como en la app, así que un proyecto de Folio
+  que haga falta. Los auxiliares van a `.folio/build/`, como en la app, así que un proyecto de Overfree
   compila igual en los dos sitios. `Esc` cancela.
 - **Errores explicados en español** en la lista de Problemas, en su archivo y línea
   («Comando no definido: \foo. ¿Está mal escrito o falta cargar su paquete?»).
@@ -19,15 +19,15 @@ Las herramientas de [Folio](https://github.com/ZuNeR0o/overfree) dentro de tu ed
   fuera de modo matemático…
 - **Revisión del proyecto** al guardar: etiquetas repetidas, `\ref` y `\cite` rotos, imágenes que
   faltan, `sin` → `\sin`, comillas rectas.
-- **Tablas**: *Folio: Pegar como tabla LaTeX* convierte las celdas copiadas de Excel o LibreOffice
+- **Tablas**: *Overfree: Pegar como tabla LaTeX* convierte las celdas copiadas de Excel o LibreOffice
   en una tabla `booktabs` (con columnas `S` si usas `siunitx`). Soltar un `.csv` en el editor también.
 - **Figuras**: soltar una imagen del proyecto en el editor inserta el `figure`.
-- **Referencias por DOI**: *Folio: Añadir referencia por DOI* descarga la entrada BibTeX, la añade al
+- **Referencias por DOI**: *Overfree: Añadir referencia por DOI* descarga la entrada BibTeX, la añade al
   `.bib` del documento y escribe el `\cite{…}`.
 
 ## Qué archivo se compila
 
-1. Si la carpeta es un proyecto de la app Folio (`.folio/project.json`), su archivo principal y motor.
+1. Si la carpeta es un proyecto de la app Overfree (`.folio/project.json`), su archivo principal y motor.
 2. Si el archivo empieza con `% !TEX root = ../main.tex`, ese.
 3. Si el archivo tiene `\documentclass`, él mismo.
 4. El ajuste `folio.mainFile`.
@@ -64,7 +64,7 @@ Un TeX instalado: [MiKTeX](https://miktex.org/) (Windows) o [TeX Live](https://t
 
 ## Desarrollo
 
-El código de la extensión vive en `extension/` y reutiliza los módulos de Folio en `../src`
+El código de la extensión vive en `extension/` y reutiliza los módulos de Overfree en `../src`
 (parser del registro, revisión, SyncTeX, visor PDF, tablas, DOI), así que una mejora en la app
 llega también a la extensión.
 
@@ -81,4 +81,4 @@ npm run package        # → folio-latex.vsix
 
 Para depurarla, abre `extension/` en VS Code y pulsa `F5` (*Run Extension*).
 
-Licencia AGPL-3.0, como Folio. Incluye código adaptado de Overleaf (AGPL-3.0).
+Licencia AGPL-3.0, como Overfree. Incluye código adaptado de Overleaf (AGPL-3.0).

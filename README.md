@@ -1,4 +1,4 @@
-# Folio
+# Overfree
 
 Editor LaTeX local, gratuito y sin conexión. Compila en tu equipo con TeX Live 2026
 (BusyTeX en WebAssembly): sin servidor, sin límite de tiempo de compilación y sin cuenta.
@@ -56,7 +56,7 @@ y la clave de firma en `~/.tauri/folio-updater.key`. Luego:
 
 ## Licencia y créditos
 
-Folio se distribuye bajo **AGPL-3.0** (ver `LICENSE`), igual que los componentes que usa:
+Overfree se distribuye bajo **AGPL-3.0** (ver `LICENSE`), igual que los componentes que usa:
 
 - [Overleaf](https://github.com/overleaf/overleaf) (AGPL-3.0): gramática Lezer de LaTeX
   (`src/overleaf/lezer-latex`), revisor de LaTeX (`src/overleaf/linter`) y partes adaptadas
@@ -86,7 +86,7 @@ npm run app        # compila y abre la app en modo desarrollo
 npm run app:build  # genera el instalador en src-tauri/target/release/bundle/nsis
 ```
 
-En escritorio, cada proyecto es una carpeta real en `Documentos\Folio\<Proyecto>`, con
+En escritorio, cada proyecto es una carpeta real en `Documentos\Folio\<Proyecto>` (la carpeta conserva el nombre anterior de la app), con
 el historial y el último PDF en su subcarpeta `.folio`. También se puede abrir cualquier
 carpeta existente con **Proyectos → Abrir carpeta**. Al eliminar un proyecto, su carpeta
 va a la Papelera de reciclaje.

@@ -293,7 +293,7 @@ fn api(ctx: &Ctx, mut req: Request, path: &str, url: &str) {
                 }
                 if let Ok(u) = target.parse() {
                     let _ = tauri::WebviewWindowBuilder::new(&app, "pdf", tauri::WebviewUrl::External(u))
-                        .title("Folio · PDF")
+                        .title("Overfree · PDF")
                         .inner_size(900.0, 1100.0)
                         .build();
                 }

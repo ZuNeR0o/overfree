@@ -1,5 +1,5 @@
 // Empaqueta la extensión (Node, CommonJS) y el visor PDF del webview (navegador, IIFE).
-// Reutiliza los módulos de ../src: el código de Folio se comparte, no se copia.
+// Reutiliza los módulos de ../src: el código de Overfree se comparte, no se copia.
 //   node build.mjs               desarrollo
 //   node build.mjs --production  minificado, sin sourcemaps (para el .vsix)
 //   node build.mjs --watch

@@ -1,4 +1,4 @@
-// Página del visor PDF dentro del webview. Reutiliza src/pdfview.ts de Folio tal cual.
+// Página del visor PDF dentro del webview. Reutiliza src/pdfview.ts de Overfree tal cual.
 
 import * as pdfjs from "pdfjs-dist";
 import { PdfViewer, type FindHit, type Zoom } from "../../src/pdfview";
@@ -126,7 +126,7 @@ async function load(data: Uint8Array) {
 
 window.addEventListener("message", (ev: MessageEvent<ToWebview>) => {
   const m = ev.data;
-  if (m.type === "load") loaded = loaded.then(() => load(m.data)).catch((e) => console.error("Folio:", e));
+  if (m.type === "load") loaded = loaded.then(() => load(m.data)).catch((e) => console.error("Overfree:", e));
   else if (m.type === "reveal") void loaded.then(() => viewer.reveal(m.page, m.top, m.bottom, m.left, m.right));
 });
 

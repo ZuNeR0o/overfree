@@ -236,7 +236,7 @@ function markSaving(delta: number) {
   $("sb-save").textContent = saving > 0 ? "Guardando…" : "Guardado";
 }
 
-/** Último contenido que Folio escribió en cada archivo: así un guardado propio nunca
+/** Último contenido que Overfree escribió en cada archivo: así un guardado propio nunca
  *  se confunde con un cambio externo, aunque sigas escribiendo mientras tanto. */
 const ownWrites = new Map<string, StoredFile>();
 const ownKey = (pid: string, path: string) => `${pid}\0${path}`;
@@ -799,7 +799,7 @@ async function handleDrop(e: DragEvent, dir: string) {
 }
 
 // Archivos soltados en cualquier otra parte de la ventana: se ignoran (si no, el visor
-// navegaría al archivo y sacaría al usuario de Folio). Va en fase de burbuja, así que el
+// navegaría al archivo y sacaría al usuario de Overfree). Va en fase de burbuja, así que el
 // árbol y el editor ya los habrán procesado si les correspondía.
 window.addEventListener("dragover", (e) => {
   if (e.dataTransfer?.types.includes("Files")) e.preventDefault();
@@ -1674,7 +1674,7 @@ async function openProject(id: string) {
   renderProblems();
   $("problems-summary").textContent = "Registro";
   $("project-name").textContent = meta.name;
-  document.title = `${meta.name} · Folio`;
+  document.title = `${meta.name} · Overfree`;
   engineSelect.value = meta.engine;
   settings.last = meta.id;
   saveSettings();
@@ -2073,7 +2073,7 @@ async function addReferenceByDoi() {
   }
 }
 
-// ---------- Cambios hechos fuera de Folio (Google Drive, VS Code, Git...) ----------
+// ---------- Cambios hechos fuera de Overfree (Google Drive, VS Code, Git...) ----------
 
 let diskSigs = new Map<string, string>();
 let diskReady = false; // la referencia inicial se toma al abrir el proyecto
@@ -2122,7 +2122,7 @@ async function checkExternalChanges() {
       if (local && pending.has(p)) {
         // hay cambios tuyos sin guardar en ese mismo archivo
         const takeDisk = confirm(
-          `${p} se modificó fuera de Folio mientras lo editabas.\n\nAceptar: cargar la versión del disco (la tuya queda en el historial).\nCancelar: conservar la tuya y sobrescribir el disco.`,
+          `${p} se modificó fuera de Overfree mientras lo editabas.\n\nAceptar: cargar la versión del disco (la tuya queda en el historial).\nCancelar: conservar la tuya y sobrescribir el disco.`,
         );
         if (!takeDisk) {
           persist(local, 0);
@@ -2158,7 +2158,7 @@ async function checkExternalChanges() {
       renderTree();
       scheduleIndex();
       setStatus(
-        updated.length === 1 ? `${updated[0]} cambió fuera de Folio y se actualizó.` : `${updated.length} archivos cambiaron fuera de Folio y se actualizaron.`,
+        updated.length === 1 ? `${updated[0]} cambió fuera de Overfree y se actualizó.` : `${updated.length} archivos cambiaron fuera de Overfree y se actualizaron.`,
       );
       if (settings.auto) {
         window.clearTimeout(autoTimer);

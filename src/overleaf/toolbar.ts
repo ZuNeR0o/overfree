@@ -1,6 +1,6 @@
 // Barra de herramientas del editor (negrita, cursiva, secciones, listas, fórmulas,
 // figura, tabla, referencias...). Los comandos de sección y el diseño general están
-// adaptados de overleaf/.../extensions/toolbar (AGPL-3.0); la interfaz es propia de Folio.
+// adaptados de overleaf/.../extensions/toolbar (AGPL-3.0); la interfaz es propia de Overfree.
 
 import { EditorSelection, type EditorState, type SelectionRange } from "@codemirror/state";
 import type { EditorView } from "@codemirror/view";

@@ -1,4 +1,4 @@
-// Ayudas de edición de Folio: tablas desde Excel/CSV, figuras al soltar imágenes y
+// Ayudas de edición de Overfree: tablas desde Excel/CSV, figuras al soltar imágenes y
 // referencias por DOI.
 
 import * as fs from "node:fs/promises";
@@ -53,18 +53,18 @@ export async function pasteTable(project: TexProject | null) {
   const editor = vscode.window.activeTextEditor;
   // desde la barra lateral se puede pulsar con cualquier archivo delante
   if (!editor || !/^(la)?tex$/.test(editor.document.languageId)) {
-    void vscode.window.showWarningMessage("Folio: abre un archivo .tex para pegar la tabla.");
+    void vscode.window.showWarningMessage("Overfree: abre un archivo .tex para pegar la tabla.");
     return;
   }
   const clip = await vscode.env.clipboard.readText();
   const t = await tableFor(project, editor.document, editor.document.offsetAt(editor.selection.start), clip);
   if (!t) {
-    void vscode.window.showWarningMessage("Folio: el portapapeles no tiene celdas (copia un rango de Excel, LibreOffice o un CSV).");
+    void vscode.window.showWarningMessage("Overfree: el portapapeles no tiene celdas (copia un rango de Excel, LibreOffice o un CSV).");
     return;
   }
   await editor.edit((e) => e.replace(editor.selection, t.tex));
   const hint = t.missing.length ? ` Añade \\usepackage{${t.missing.join(",")}} al preámbulo.` : "";
-  vscode.window.setStatusBarMessage(`Folio: tabla de ${t.rows.length}×${t.rows[0].length} insertada.${hint}`, 6000);
+  vscode.window.setStatusBarMessage(`Overfree: tabla de ${t.rows.length}×${t.rows[0].length} insertada.${hint}`, 6000);
 }
 
 // ---------- Soltar archivos en el editor ----------
@@ -123,7 +123,7 @@ async function targetBib(project: TexProject) {
 
 export async function addReferenceByDoi(project: TexProject | null) {
   if (!project) {
-    void vscode.window.showWarningMessage("Folio: abre un archivo .tex del proyecto.");
+    void vscode.window.showWarningMessage("Overfree: abre un archivo .tex del proyecto.");
     return;
   }
   const input = await vscode.window.showInputBox({
@@ -135,7 +135,7 @@ export async function addReferenceByDoi(project: TexProject | null) {
   if (!input) return;
   const doi = parseDoi(input);
   if (!doi) {
-    void vscode.window.showErrorMessage("Folio: no reconozco un DOI en ese texto. Debe empezar por 10.");
+    void vscode.window.showErrorMessage("Overfree: no reconozco un DOI en ese texto. Debe empezar por 10.");
     return;
   }
   const editor = vscode.window.activeTextEditor;
@@ -145,7 +145,7 @@ export async function addReferenceByDoi(project: TexProject | null) {
     let key = findByDoi(await readProjectText(abs), doi);
     if (!key) {
       let entry = await vscode.window.withProgress(
-        { location: vscode.ProgressLocation.Notification, title: `Folio: buscando ${doi}…` },
+        { location: vscode.ProgressLocation.Notification, title: `Overfree: buscando ${doi}…` },
         () => fetchBibtex(doi),
       );
       key = bibKey(entry) ?? `ref${Date.now()}`;
@@ -176,10 +176,10 @@ export async function addReferenceByDoi(project: TexProject | null) {
     }
     void vscode.window.showInformationMessage(
       created
-        ? `Folio: «${key}» añadida a referencias.bib. Añade \\bibliography{referencias} (o \\addbibresource{referencias.bib}) al documento.`
-        : `Folio: «${key}» añadida a ${rel}.`,
+        ? `Overfree: «${key}» añadida a referencias.bib. Añade \\bibliography{referencias} (o \\addbibresource{referencias.bib}) al documento.`
+        : `Overfree: «${key}» añadida a ${rel}.`,
     );
   } catch (e) {
-    void vscode.window.showErrorMessage(`Folio: ${e instanceof Error ? e.message : String(e)}`);
+    void vscode.window.showErrorMessage(`Overfree: ${e instanceof Error ? e.message : String(e)}`);
   }
 }

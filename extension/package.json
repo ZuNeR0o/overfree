@@ -1,8 +1,8 @@
 {
   "name": "folio-latex",
-  "displayName": "Folio LaTeX",
-  "description": "Lo mejor de Folio dentro de VS Code y Antigravity: compilación con el TeX del sistema, errores explicados en español, visor PDF con SyncTeX, revisión en vivo, revisión del proyecto, tablas desde Excel/CSV y referencias por DOI.",
-  "version": "0.1.2",
+  "displayName": "Overfree LaTeX",
+  "description": "Lo mejor de Overfree dentro de VS Code y Antigravity: compilación con el TeX del sistema, errores explicados en español, visor PDF con SyncTeX, revisión en vivo, revisión del proyecto, tablas desde Excel/CSV y referencias por DOI.",
+  "version": "0.1.3",
   "publisher": "zuner0o",
   "license": "AGPL-3.0-only",
   "icon": "media/icon.png",
@@ -41,15 +41,15 @@
   ],
   "contributes": {
     "commands": [
-      { "command": "folio.compile", "title": "Compilar", "category": "Folio", "icon": "$(play)" },
-      { "command": "folio.cancel", "title": "Cancelar compilación", "category": "Folio", "icon": "$(debug-stop)" },
-      { "command": "folio.showPdf", "title": "Ver PDF", "category": "Folio", "icon": "$(open-preview)" },
-      { "command": "folio.syncForward", "title": "Ir al PDF (SyncTeX)", "category": "Folio" },
-      { "command": "folio.checkProject", "title": "Revisar el proyecto", "category": "Folio" },
-      { "command": "folio.pasteTable", "title": "Pegar como tabla LaTeX", "category": "Folio" },
-      { "command": "folio.addReferenceByDoi", "title": "Añadir referencia por DOI", "category": "Folio" },
-      { "command": "folio.clean", "title": "Borrar archivos auxiliares", "category": "Folio" },
-      { "command": "folio.showLog", "title": "Ver registro de compilación", "category": "Folio" }
+      { "command": "folio.compile", "title": "Compilar", "category": "Overfree", "icon": "$(play)" },
+      { "command": "folio.cancel", "title": "Cancelar compilación", "category": "Overfree", "icon": "$(debug-stop)" },
+      { "command": "folio.showPdf", "title": "Ver PDF", "category": "Overfree", "icon": "$(open-preview)" },
+      { "command": "folio.syncForward", "title": "Ir al PDF (SyncTeX)", "category": "Overfree" },
+      { "command": "folio.checkProject", "title": "Revisar el proyecto", "category": "Overfree" },
+      { "command": "folio.pasteTable", "title": "Pegar como tabla LaTeX", "category": "Overfree" },
+      { "command": "folio.addReferenceByDoi", "title": "Añadir referencia por DOI", "category": "Overfree" },
+      { "command": "folio.clean", "title": "Borrar archivos auxiliares", "category": "Overfree" },
+      { "command": "folio.showLog", "title": "Ver registro de compilación", "category": "Overfree" }
     ],
     "keybindings": [
       { "command": "folio.compile", "key": "ctrl+alt+b", "mac": "cmd+alt+b", "when": "editorLangId == latex || editorLangId == tex" },
@@ -61,10 +61,10 @@
       }
     ],
     "viewsContainers": {
-      "activitybar": [{ "id": "folio", "title": "Folio", "icon": "media/folio.svg" }]
+      "activitybar": [{ "id": "folio", "title": "Overfree", "icon": "media/overfree.svg" }]
     },
     "views": {
-      "folio": [{ "id": "folio.actions", "name": "Acciones", "icon": "media/folio.svg" }]
+      "folio": [{ "id": "folio.actions", "name": "Acciones", "icon": "media/overfree.svg" }]
     },
     "menus": {
       "view/title": [
@@ -82,7 +82,7 @@
       ]
     },
     "configuration": {
-      "title": "Folio",
+      "title": "Overfree",
       "properties": {
         "folio.engine": {
           "type": "string",

@@ -1,5 +1,9 @@
 # Cambios
 
+## 0.1.3
+
+- Folio pasa a llamarse **Overfree**, con logo nuevo (la «O» abierta y el cubículo 246). Los comandos y ajustes (`folio.*`) no cambian: tu configuración se conserva.
+
 ## 0.1.2
 
 - Icono de Folio en la barra de actividad (como PlatformIO), con una vista *Acciones*: compilar, ver el PDF, SyncTeX, revisar, tablas, DOI, registro, limpiar y ajustes.
