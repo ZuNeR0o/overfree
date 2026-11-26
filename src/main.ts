@@ -1358,6 +1358,10 @@ async function compile(auto = false) {
         { main: pMain, engine: pEngine, cacheKey: pid, draft },
       );
     }
+    // Un PDF vacío o que no empieza con "%PDF" no es un PDF: la compilación falló aunque el archivo exista (PDF.js daba
+    // "The PDF file is empty, i.e. its size is zero bytes" y el registro de LaTeX con el error real se perdía).
+    const esPdf = (b: Uint8Array | null | undefined) => !!b && b.length > 4 && b[0] === 0x25 && b[1] === 0x50 && b[2] === 0x44 && b[3] === 0x46;
+    if (r.pdf && !esPdf(r.pdf)) r = { ...r, pdf: null, synctex: null, success: false };
     if (pid !== meta.id) {
       // se guarda en su proyecto, pero no se muestra en el que tienes abierto ahora
       if (r.pdf) void backend.saveOutput(pid, { pdf: r.pdf, synctex: r.synctex, time: Date.now(), aux: { main: pMain, engine: pEngine, files: exportAux(pid, pMain, pEngine) } }).catch(() => undefined);
@@ -1370,7 +1374,15 @@ async function compile(auto = false) {
       problems.unshift({ level: "error", message: "La compilación falló. Revisa el registro completo.", file: null, line: null });
     }
     renderProblems();
-    if (r.pdf) await showPdf(r.pdf);
+    if (r.pdf) {
+      // si el visor no puede abrir el PDF, se avisa SIN borrar el registro de LaTeX (antes lo reemplazaba el error del visor)
+      const okPdf = await showPdf(r.pdf).then(() => true, (e: unknown) => {
+        problems.unshift({ level: "error", message: "El PDF generado no se pudo abrir (" + (e instanceof Error ? e.message : String(e)) + "). Revisa el registro completo.", file: null, line: null });
+        renderProblems();
+        return false;
+      });
+      if (!okPdf) r = { ...r, pdf: null, synctex: null, success: false };
+    }
     if (pid !== meta.id) return; // cambiaste de proyecto mientras se cargaba el PDF
     const newSync = r.synctex ? await parseSynctex(r.synctex, known).catch(() => null) : null;
     if (pid !== meta.id) return; // cambiaste de proyecto mientras se mostraba

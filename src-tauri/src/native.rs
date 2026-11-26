@@ -265,8 +265,8 @@ fn compile_inner(dir: &Path, main: &str, engine: &str, shell_escape: bool, draft
         tools_log += &r.log;
         log = read(&log_path);
         let now_aux = read(&aux);
-        // error fatal (sin PDF): no tiene sentido seguir con bibliografía ni más pasadas
-        if draft || !pdf_path.exists() {
+        // error fatal (sin PDF, o PDF vacío): no tiene sentido seguir con bibliografía ni más pasadas
+        if draft || fs::metadata(&pdf_path).map(|m| m.len() == 0).unwrap_or(true) {
             break;
         }
 
@@ -309,8 +309,9 @@ fn compile_inner(dir: &Path, main: &str, engine: &str, shell_escape: bool, draft
     }
 
     let b64 = base64::engine::general_purpose::STANDARD;
-    let pdf = fs::read(&pdf_path).ok();
-    let synctex = fs::read(&synctex_path).ok();
+    // un archivo vacío o que no empieza con "%PDF" no es un PDF: la compilación falló (no se devuelve ni se da por buena)
+    let pdf = fs::read(&pdf_path).ok().filter(|b| b.starts_with(b"%PDF"));
+    let synctex = if pdf.is_some() { fs::read(&synctex_path).ok() } else { None };
     Ok(json!({
         "success": pdf.is_some(),
         "pdf": pdf.map(|b| b64.encode(b)),
