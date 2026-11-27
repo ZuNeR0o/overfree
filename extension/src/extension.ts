@@ -10,6 +10,7 @@ import { isInside, listProjectFiles, resolveProject, type EngineSetting, type Te
 import { wordCount } from "../../src/outline";
 import { registerEditing } from "./editing";
 import { listAppProjects } from "./projects";
+import { checkForUpdate } from "./update";
 import { addReferenceByDoi, pasteTable, projectTexts, registerDrop } from "./tools";
 
 const isLatex = (doc: vscode.TextDocument) => doc.languageId === "latex" || doc.languageId === "tex" || /\.(tex|ltx)$/i.test(doc.fileName);
@@ -281,6 +282,9 @@ export function activate(ctx: vscode.ExtensionContext) {
     }
     if (uri) await vscode.commands.executeCommand("vscode.openFolder", uri, { forceNewWindow: false });
   });
+  command("folio.checkForUpdates", () => checkForUpdate(ctx, true));
+  // solo con la extensión instalada (no al desarrollarla ni en las pruebas)
+  if (ctx.extensionMode === vscode.ExtensionMode.Production) setTimeout(() => void checkForUpdate(ctx), 10_000);
   command("folio.toggleAutoCompile", async () => {
     const on = !cfg().get<boolean>("compileOnType", false);
     if (!(await setSetting("compileOnType", on))) return;

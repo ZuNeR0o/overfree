@@ -2,7 +2,7 @@
   "name": "folio-latex",
   "displayName": "Overfree LaTeX",
   "description": "Lo mejor de Overfree dentro de VS Code y Antigravity: compilación con el TeX del sistema, errores explicados en español, visor PDF con SyncTeX, revisión en vivo, revisión del proyecto, tablas desde Excel/CSV y referencias por DOI.",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "publisher": "zuner0o",
   "license": "AGPL-3.0-only",
   "icon": "media/icon.png",
@@ -183,6 +183,11 @@
         "title": "Abrir proyecto…",
         "category": "Overfree",
         "icon": "$(folder-opened)"
+      },
+      {
+        "command": "folio.checkForUpdates",
+        "title": "Buscar actualizaciones de la extensión",
+        "category": "Overfree"
       }
     ],
     "keybindings": [
@@ -458,6 +463,11 @@
           "type": "boolean",
           "default": true,
           "description": "Revisión del proyecto al guardar: etiquetas repetidas, \\ref y \\cite rotos, imágenes que faltan, sin → \\sin…"
+        },
+        "folio.checkForUpdates": {
+          "type": "boolean",
+          "default": true,
+          "description": "Buscar una vez al día una versión nueva de la extensión en GitHub Releases y ofrecer instalarla."
         }
       }
     },

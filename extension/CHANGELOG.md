@@ -1,5 +1,9 @@
 # Cambios
 
+## 0.1.8
+
+- **Se actualiza sola** desde GitHub Releases: una vez al día busca una versión nueva, pregunta, descarga el `.vsix` (solo de las releases de este repositorio), lo instala y ofrece recargar la ventana. Ajuste `folio.checkForUpdates` y comando *Overfree: Buscar actualizaciones de la extensión*.
+
 ## 0.1.7
 
 - **Abrir proyecto…**: lista los proyectos de la app Overfree (y los de Documentos/Folio) y abre el elegido como carpeta; también «Abrir otra carpeta…». En la vista *Acciones* y en su barra.

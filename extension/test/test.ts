@@ -16,6 +16,7 @@ import { CancelledError, compile, findTexBin, validMain } from "../src/compile";
 import { engineFromSource, resolveProject } from "../src/texproject";
 import { toSnippet } from "../src/snippet";
 import { appLocations, listAppProjects } from "../src/projects";
+import { newer, pickUpdate } from "../src/releases";
 
 const tests: [string, () => Promise<void> | void][] = [];
 const test = (name: string, fn: () => Promise<void> | void) => tests.push([name, fn]);
@@ -206,6 +207,20 @@ test("listAppProjects: registro de la app y Documentos/Folio", async () => {
   writeFileSync(loc.registry, JSON.stringify([{ id: "a", dir: fuera }, { id: "b", dir: path.join(home, "Documents", "Folio", "RP2") }, { id: "c", dir: path.join(home, "borrado") }]));
   const list = await listAppProjects(loc);
   assert.deepEqual(list.map((p) => p.name), ["RP2", "Tarea Kalman"]);
+});
+
+test("actualizaciones: elige la release de la extensión más nueva y segura", () => {
+  assert.ok(newer("0.1.10", "0.1.9") && !newer("0.1.7", "0.1.7") && !newer("0.1.6", "0.2.0"));
+  const dl = (v: string) => ({ name: "folio-latex.vsix", browser_download_url: `https://github.com/ZuNeR0o/overfree/releases/download/extension-v${v}/folio-latex.vsix` });
+  const releases = [
+    { tag_name: "v0.1.10", assets: [] }, // la app, no la extensión
+    { tag_name: "extension-v0.1.8", assets: [dl("0.1.8")] },
+    { tag_name: "extension-v0.2.0", prerelease: true, assets: [dl("0.2.0")] },
+    { tag_name: "extension-v0.1.9", assets: [{ name: "folio-latex.vsix", browser_download_url: "https://evil.example/folio-latex.vsix" }] },
+    { tag_name: "extension-v0.1.6", assets: [dl("0.1.6")] },
+  ];
+  assert.equal(pickUpdate(releases, "0.1.7")?.version, "0.1.8");
+  assert.equal(pickUpdate(releases, "0.1.8"), null);
 });
 
 test("revisión en vivo: linter de Overleaf sin Worker", () => {
