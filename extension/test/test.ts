@@ -14,6 +14,7 @@ import { forward, inverse, parseSynctex } from "../../src/synctex";
 import { parseTsv, toLatexTable } from "../../src/tables";
 import { CancelledError, compile, findTexBin, validMain } from "../src/compile";
 import { engineFromSource, resolveProject } from "../src/texproject";
+import { toSnippet } from "../src/snippet";
 
 const tests: [string, () => Promise<void> | void][] = [];
 const test = (name: string, fn: () => Promise<void> | void) => tests.push([name, fn]);
@@ -180,6 +181,12 @@ test("engineFromSource", () => {
   assert.equal(engineFromSource("\\babelprovide[import, onchar=ids fonts]{english}"), "lualatex");
   assert.equal(engineFromSource("\\documentclass{article}", "\\usepackage{fontspec}"), "xelatex", "preámbulo en otro .tex");
   assert.equal(engineFromSource("\\usepackage{amsmath}\n\\usepackage{xcolor}"), null);
+});
+
+test("toSnippet: plantillas de la app a snippets de VS Code", () => {
+  assert.equal(toSnippet("\\textbf{${}}"), "\\\\textbf{${1}\\}");
+  assert.equal(toSnippet("\\begin{${env}}\n\t${}\n\\end{${env}}"), "\\\\begin{${1:env}\\}\n\t${2}\n\\\\end{${1:env}\\}");
+  assert.equal(toSnippet("\\date{${\\today}}"), "\\\\date{${1:\\\\today}\\}");
 });
 
 test("revisión en vivo: linter de Overleaf sin Worker", () => {

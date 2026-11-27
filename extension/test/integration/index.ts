@@ -181,6 +181,61 @@ export async function run() {
     await vscode.commands.executeCommand("workbench.action.files.revert");
   });
 
+  await step("autocompletado: \\ref con las etiquetas del proyecto y \\begin", async () => {
+    const ed = await vscode.window.showTextDocument(cap, { viewColumn: vscode.ViewColumn.One });
+    const end = ed.document.lineAt(ed.document.lineCount - 1).range.end;
+    await ed.edit((e) => e.insert(end, "\nVer \\ref{"));
+    const pos = ed.document.lineAt(ed.document.lineCount - 1).range.end;
+    const list = await vscode.commands.executeCommand<vscode.CompletionList>("vscode.executeCompletionItemProvider", ed.document.uri, pos, "{");
+    const labels = list.items.map((i) => (typeof i.label === "string" ? i.label : i.label.label));
+    assert.ok(labels.includes("sec:intro"), `etiquetas: ${labels.slice(0, 20).join(", ")}`);
+    await ed.edit((e) => e.insert(pos, "}\n\\begin{"));
+    const pos2 = ed.document.lineAt(ed.document.lineCount - 1).range.end;
+    const envs = await vscode.commands.executeCommand<vscode.CompletionList>("vscode.executeCompletionItemProvider", ed.document.uri, pos2, "{");
+    assert.ok(envs.items.some((i) => i.label === "equation"), "entorno equation");
+    await vscode.commands.executeCommand("workbench.action.files.revert");
+  });
+
+  await step("esquema: secciones en la vista Outline", async () => {
+    const syms = await vscode.commands.executeCommand<vscode.DocumentSymbol[]>("vscode.executeDocumentSymbolProvider", main);
+    assert.ok(syms?.some((s) => s.name === "Introducción"), `símbolos: ${JSON.stringify(syms?.map((s) => s.name))}`);
+  });
+
+  await step("formato: Ctrl+B pone en negrita y lo quita", async () => {
+    const ed = await vscode.window.showTextDocument(cap, { viewColumn: vscode.ViewColumn.One });
+    const line = ed.document.lineAt(2);
+    const word = line.text.indexOf("Texto");
+    ed.selection = new vscode.Selection(2, word, 2, word + 5);
+    await vscode.commands.executeCommand("folio.format.bold");
+    assert.match(ed.document.lineAt(2).text, /\\textbf\{Texto\}/);
+    ed.selection = new vscode.Selection(2, word, 2, word + "\\textbf{Texto}".length);
+    await vscode.commands.executeCommand("folio.format.bold");
+    assert.equal(ed.document.lineAt(2).text, line.text, "segunda vez: se quita");
+    await vscode.commands.executeCommand("workbench.action.files.revert");
+  });
+
+  await step("barra de estado: motor y ajuste de línea", async () => {
+    const cmds = await vscode.commands.getCommands(true);
+    for (const c of ["folio.selectEngine", "folio.toggleAutoCompile", "folio.format.heading"]) assert.ok(cmds.includes(c), c);
+    const wrapCfg = vscode.workspace.getConfiguration("editor", { languageId: "latex" }).get("wordWrap");
+    assert.equal(wrapCfg, "on", "editor.wordWrap en LaTeX");
+  });
+
+  await step("Auto: compila al dejar de escribir, sin guardar a mano", async () => {
+    const c = vscode.workspace.getConfiguration("folio");
+    await c.update("compileOnType", true, vscode.ConfigurationTarget.Workspace);
+    try {
+      while (api.isCompiling()) await sleep(200);
+      const ed = await vscode.window.showTextDocument(cap, { viewColumn: vscode.ViewColumn.One });
+      await ed.edit((e) => e.insert(new vscode.Position(ed.document.lineCount, 0), "\nEscrito sin guardar.\n"));
+      await waitFor("guardado automático", () => !ed.document.isDirty, 5000);
+      await waitFor("compilación automática", () => api.isCompiling(), 5000);
+      await waitFor("fin de la compilación", () => !api.isCompiling(), 60000);
+    } finally {
+      await c.update("compileOnType", undefined, vscode.ConfigurationTarget.Workspace);
+    }
+  });
+
   await step("compilar al guardar y cancelar", async () => {
     const before = api.pdf.renderState?.at ?? 0;
     const doc = await vscode.workspace.openTextDocument(cap);

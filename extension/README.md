@@ -11,6 +11,18 @@ Las herramientas de [Overfree](https://github.com/ZuNeR0o/overfree) dentro de tu
   pdfLaTeX, XeLaTeX o LuaLaTeX, con BibTeX, Biber, glosarios y makeindex automáticos y las pasadas
   que haga falta. Los auxiliares van a `.folio/build/`, como en la app, así que un proyecto de Overfree
   compila igual en los dos sitios. `Esc` cancela.
+- **Compilación automática al escribir** (como «Auto» en la app): clic en *Auto* en la barra de estado
+  o el ajuste `folio.compileOnType`. Guarda tras 1,5 s sin escribir y compila.
+- **Motor en la barra de estado**: muestra el que se usa (p. ej. *LuaLaTeX (auto)*); clic para elegir
+  Automático, pdfLaTeX, XeLaTeX o LuaLaTeX.
+- **Formato** como la barra de la app: botón *Formato LaTeX* en la barra del editor y en el menú
+  contextual (negrita, cursiva, subrayado, estilo del párrafo, fórmulas, listas, enlace, nota al
+  pie, figura, tabla). `Ctrl+B` y `Ctrl+I` en archivos LaTeX; repetirlo sobre `\textbf{…}` lo quita.
+- **Autocompletado**: comandos y símbolos, `\begin{…}` con su `\end`, `\ref` con las etiquetas del
+  proyecto, `\cite` con las entradas de los `.bib`, archivos en `\includegraphics`/`\input` y paquetes.
+- **Esquema** de secciones en la vista *Outline*, las migas de pan y `Ctrl+Shift+O`.
+- **Conteo de palabras** del documento en la barra de estado.
+- **Ajuste de línea** activado por defecto en LaTeX (`editor.wordWrap`), como en la app.
 - **Errores explicados en español** en la lista de Problemas, en su archivo y línea
   («Comando no definido: \foo. ¿Está mal escrito o falta cargar su paquete?»).
 - **Visor PDF** al lado, con zoom, búsqueda (`Ctrl+F`), enlaces y selección de texto.
@@ -34,7 +46,8 @@ Las herramientas de [Overfree](https://github.com/ZuNeR0o/overfree) dentro de tu
 5. El `.tex` con `\documentclass` del espacio de trabajo (mejor `main.tex`).
 
 El motor sale de `.folio/project.json`, de `% !TEX program = xelatex` o del ajuste `folio.engine`.
-Con `auto`, se usa XeLaTeX si el documento carga `fontspec`, `unicode-math` o `polyglossia`.
+Con `auto`, se usa LuaLaTeX si el documento usa algo exclusivo de LuaTeX (babel con `bidi=basic` u
+`onchar=`, `luacode`…) y XeLaTeX si carga `fontspec`, `unicode-math` o `polyglossia`.
 
 ## Requisitos
 

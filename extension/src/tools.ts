@@ -24,7 +24,7 @@ async function readProjectText(abs: string): Promise<string> {
   return fs.readFile(abs).then((b) => decodeText(b).text, () => "");
 }
 
-async function projectTexts(project: TexProject, ext: RegExp) {
+export async function projectTexts(project: TexProject, ext: RegExp) {
   const files = (await listProjectFiles(project.root)).filter((f) => ext.test(f));
   return Promise.all(files.map(async (f) => ({ path: f, text: await readProjectText(path.join(project.root, f)) })));
 }

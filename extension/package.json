@@ -2,7 +2,7 @@
   "name": "folio-latex",
   "displayName": "Overfree LaTeX",
   "description": "Lo mejor de Overfree dentro de VS Code y Antigravity: compilación con el TeX del sistema, errores explicados en español, visor PDF con SyncTeX, revisión en vivo, revisión del proyecto, tablas desde Excel/CSV y referencias por DOI.",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "publisher": "zuner0o",
   "license": "AGPL-3.0-only",
   "icon": "media/icon.png",
@@ -31,7 +31,10 @@
     "untrustedWorkspaces": {
       "supported": "limited",
       "description": "En carpetas no fiables se ignoran folio.texPath y folio.shellEscape del espacio de trabajo (podrían ejecutar programas).",
-      "restrictedConfigurations": ["folio.texPath", "folio.shellEscape"]
+      "restrictedConfigurations": [
+        "folio.texPath",
+        "folio.shellEscape"
+      ]
     }
   },
   "activationEvents": [
@@ -41,44 +44,349 @@
   ],
   "contributes": {
     "commands": [
-      { "command": "folio.compile", "title": "Compilar", "category": "Overfree", "icon": "$(play)" },
-      { "command": "folio.cancel", "title": "Cancelar compilación", "category": "Overfree", "icon": "$(debug-stop)" },
-      { "command": "folio.showPdf", "title": "Ver PDF", "category": "Overfree", "icon": "$(open-preview)" },
-      { "command": "folio.syncForward", "title": "Ir al PDF (SyncTeX)", "category": "Overfree" },
-      { "command": "folio.checkProject", "title": "Revisar el proyecto", "category": "Overfree" },
-      { "command": "folio.pasteTable", "title": "Pegar como tabla LaTeX", "category": "Overfree" },
-      { "command": "folio.addReferenceByDoi", "title": "Añadir referencia por DOI", "category": "Overfree" },
-      { "command": "folio.clean", "title": "Borrar archivos auxiliares", "category": "Overfree" },
-      { "command": "folio.showLog", "title": "Ver registro de compilación", "category": "Overfree" }
+      {
+        "command": "folio.compile",
+        "title": "Compilar",
+        "category": "Overfree",
+        "icon": "$(play)"
+      },
+      {
+        "command": "folio.cancel",
+        "title": "Cancelar compilación",
+        "category": "Overfree",
+        "icon": "$(debug-stop)"
+      },
+      {
+        "command": "folio.showPdf",
+        "title": "Ver PDF",
+        "category": "Overfree",
+        "icon": "$(open-preview)"
+      },
+      {
+        "command": "folio.syncForward",
+        "title": "Ir al PDF (SyncTeX)",
+        "category": "Overfree"
+      },
+      {
+        "command": "folio.checkProject",
+        "title": "Revisar el proyecto",
+        "category": "Overfree"
+      },
+      {
+        "command": "folio.pasteTable",
+        "title": "Pegar como tabla LaTeX",
+        "category": "Overfree"
+      },
+      {
+        "command": "folio.addReferenceByDoi",
+        "title": "Añadir referencia por DOI",
+        "category": "Overfree"
+      },
+      {
+        "command": "folio.clean",
+        "title": "Borrar archivos auxiliares",
+        "category": "Overfree"
+      },
+      {
+        "command": "folio.showLog",
+        "title": "Ver registro de compilación",
+        "category": "Overfree"
+      },
+      {
+        "command": "folio.format.bold",
+        "title": "Negrita",
+        "category": "Overfree",
+        "icon": "$(bold)"
+      },
+      {
+        "command": "folio.format.italic",
+        "title": "Cursiva",
+        "category": "Overfree",
+        "icon": "$(italic)"
+      },
+      {
+        "command": "folio.format.underline",
+        "title": "Subrayado",
+        "category": "Overfree"
+      },
+      {
+        "command": "folio.format.emph",
+        "title": "Énfasis",
+        "category": "Overfree"
+      },
+      {
+        "command": "folio.format.heading",
+        "title": "Estilo del párrafo (sección, subsección…)",
+        "category": "Overfree",
+        "icon": "$(symbol-text)"
+      },
+      {
+        "command": "folio.format.inlineMath",
+        "title": "Fórmula en línea ($…$)",
+        "category": "Overfree",
+        "icon": "$(symbol-operator)"
+      },
+      {
+        "command": "folio.format.equation",
+        "title": "Ecuación (equation)",
+        "category": "Overfree"
+      },
+      {
+        "command": "folio.format.itemize",
+        "title": "Lista con viñetas",
+        "category": "Overfree",
+        "icon": "$(list-unordered)"
+      },
+      {
+        "command": "folio.format.enumerate",
+        "title": "Lista numerada",
+        "category": "Overfree",
+        "icon": "$(list-ordered)"
+      },
+      {
+        "command": "folio.format.link",
+        "title": "Enlace (\\href)",
+        "category": "Overfree",
+        "icon": "$(link)"
+      },
+      {
+        "command": "folio.format.footnote",
+        "title": "Nota al pie",
+        "category": "Overfree"
+      },
+      {
+        "command": "folio.format.figure",
+        "title": "Insertar figura",
+        "category": "Overfree",
+        "icon": "$(file-media)"
+      },
+      {
+        "command": "folio.format.table",
+        "title": "Insertar tabla",
+        "category": "Overfree",
+        "icon": "$(table)"
+      },
+      {
+        "command": "folio.selectEngine",
+        "title": "Elegir motor de compilación",
+        "category": "Overfree",
+        "icon": "$(symbol-misc)"
+      },
+      {
+        "command": "folio.toggleAutoCompile",
+        "title": "Activar/desactivar compilación automática al escribir",
+        "category": "Overfree",
+        "icon": "$(sync)"
+      }
     ],
     "keybindings": [
-      { "command": "folio.compile", "key": "ctrl+alt+b", "mac": "cmd+alt+b", "when": "editorLangId == latex || editorLangId == tex" },
-      { "command": "folio.syncForward", "key": "ctrl+alt+j", "mac": "cmd+alt+j", "when": "editorLangId == latex || editorLangId == tex" },
+      {
+        "command": "folio.compile",
+        "key": "ctrl+alt+b",
+        "mac": "cmd+alt+b",
+        "when": "editorLangId == latex || editorLangId == tex"
+      },
+      {
+        "command": "folio.syncForward",
+        "key": "ctrl+alt+j",
+        "mac": "cmd+alt+j",
+        "when": "editorLangId == latex || editorLangId == tex"
+      },
       {
         "command": "folio.cancel",
         "key": "escape",
         "when": "folio.compiling && editorTextFocus && !suggestWidgetVisible && !findWidgetVisible && !inSnippetMode && !parameterHintsVisible"
+      },
+      {
+        "command": "folio.format.bold",
+        "key": "ctrl+b",
+        "mac": "cmd+b",
+        "when": "editorTextFocus && !editorReadonly && (editorLangId == latex || editorLangId == tex)"
+      },
+      {
+        "command": "folio.format.italic",
+        "key": "ctrl+i",
+        "mac": "cmd+i",
+        "when": "editorTextFocus && !editorReadonly && (editorLangId == latex || editorLangId == tex)"
       }
     ],
     "viewsContainers": {
-      "activitybar": [{ "id": "folio", "title": "Overfree", "icon": "media/overfree.svg" }]
+      "activitybar": [
+        {
+          "id": "folio",
+          "title": "Overfree",
+          "icon": "media/overfree.svg"
+        }
+      ]
     },
     "views": {
-      "folio": [{ "id": "folio.actions", "name": "Acciones", "icon": "media/overfree.svg" }]
+      "folio": [
+        {
+          "id": "folio.actions",
+          "name": "Acciones",
+          "icon": "media/overfree.svg"
+        }
+      ]
     },
     "menus": {
       "view/title": [
-        { "command": "folio.compile", "when": "view == folio.actions && !folio.compiling", "group": "navigation@1" },
-        { "command": "folio.cancel", "when": "view == folio.actions && folio.compiling", "group": "navigation@1" }
+        {
+          "command": "folio.compile",
+          "when": "view == folio.actions && !folio.compiling",
+          "group": "navigation@1"
+        },
+        {
+          "command": "folio.cancel",
+          "when": "view == folio.actions && folio.compiling",
+          "group": "navigation@1"
+        }
       ],
       "editor/title": [
-        { "command": "folio.compile", "when": "(editorLangId == latex || editorLangId == tex) && !folio.compiling", "group": "navigation@1" },
-        { "command": "folio.cancel", "when": "(editorLangId == latex || editorLangId == tex) && folio.compiling", "group": "navigation@1" },
-        { "command": "folio.showPdf", "when": "editorLangId == latex || editorLangId == tex", "group": "navigation@2" }
+        {
+          "command": "folio.compile",
+          "when": "(editorLangId == latex || editorLangId == tex) && !folio.compiling",
+          "group": "navigation@1"
+        },
+        {
+          "command": "folio.cancel",
+          "when": "(editorLangId == latex || editorLangId == tex) && folio.compiling",
+          "group": "navigation@1"
+        },
+        {
+          "command": "folio.showPdf",
+          "when": "editorLangId == latex || editorLangId == tex",
+          "group": "navigation@2"
+        },
+        {
+          "submenu": "folio.format",
+          "when": "editorLangId == latex || editorLangId == tex",
+          "group": "navigation@0"
+        }
       ],
       "editor/context": [
-        { "command": "folio.pasteTable", "when": "editorLangId == latex || editorLangId == tex", "group": "9_cutcopypaste@9" },
-        { "command": "folio.addReferenceByDoi", "when": "editorLangId == latex || editorLangId == tex", "group": "folio@1" }
+        {
+          "command": "folio.pasteTable",
+          "when": "editorLangId == latex || editorLangId == tex",
+          "group": "9_cutcopypaste@9"
+        },
+        {
+          "command": "folio.addReferenceByDoi",
+          "when": "editorLangId == latex || editorLangId == tex",
+          "group": "folio@1"
+        },
+        {
+          "submenu": "folio.format",
+          "when": "editorLangId == latex || editorLangId == tex",
+          "group": "1_modification@0"
+        }
+      ],
+      "folio.format": [
+        {
+          "command": "folio.format.bold",
+          "group": "1_fmt@0"
+        },
+        {
+          "command": "folio.format.italic",
+          "group": "1_fmt@1"
+        },
+        {
+          "command": "folio.format.underline",
+          "group": "1_fmt@2"
+        },
+        {
+          "command": "folio.format.emph",
+          "group": "1_fmt@3"
+        },
+        {
+          "command": "folio.format.heading",
+          "group": "2_fmt@4"
+        },
+        {
+          "command": "folio.format.inlineMath",
+          "group": "3_fmt@5"
+        },
+        {
+          "command": "folio.format.equation",
+          "group": "3_fmt@6"
+        },
+        {
+          "command": "folio.format.itemize",
+          "group": "4_fmt@7"
+        },
+        {
+          "command": "folio.format.enumerate",
+          "group": "4_fmt@8"
+        },
+        {
+          "command": "folio.format.link",
+          "group": "5_fmt@9"
+        },
+        {
+          "command": "folio.format.footnote",
+          "group": "5_fmt@10"
+        },
+        {
+          "command": "folio.format.figure",
+          "group": "6_fmt@11"
+        },
+        {
+          "command": "folio.format.table",
+          "group": "6_fmt@12"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "folio.format.bold",
+          "when": "editorLangId == latex || editorLangId == tex"
+        },
+        {
+          "command": "folio.format.italic",
+          "when": "editorLangId == latex || editorLangId == tex"
+        },
+        {
+          "command": "folio.format.underline",
+          "when": "editorLangId == latex || editorLangId == tex"
+        },
+        {
+          "command": "folio.format.emph",
+          "when": "editorLangId == latex || editorLangId == tex"
+        },
+        {
+          "command": "folio.format.heading",
+          "when": "editorLangId == latex || editorLangId == tex"
+        },
+        {
+          "command": "folio.format.inlineMath",
+          "when": "editorLangId == latex || editorLangId == tex"
+        },
+        {
+          "command": "folio.format.equation",
+          "when": "editorLangId == latex || editorLangId == tex"
+        },
+        {
+          "command": "folio.format.itemize",
+          "when": "editorLangId == latex || editorLangId == tex"
+        },
+        {
+          "command": "folio.format.enumerate",
+          "when": "editorLangId == latex || editorLangId == tex"
+        },
+        {
+          "command": "folio.format.link",
+          "when": "editorLangId == latex || editorLangId == tex"
+        },
+        {
+          "command": "folio.format.footnote",
+          "when": "editorLangId == latex || editorLangId == tex"
+        },
+        {
+          "command": "folio.format.figure",
+          "when": "editorLangId == latex || editorLangId == tex"
+        },
+        {
+          "command": "folio.format.table",
+          "when": "editorLangId == latex || editorLangId == tex"
+        }
       ]
     },
     "configuration": {
@@ -86,7 +394,12 @@
       "properties": {
         "folio.engine": {
           "type": "string",
-          "enum": ["auto", "pdflatex", "xelatex", "lualatex"],
+          "enum": [
+            "auto",
+            "pdflatex",
+            "xelatex",
+            "lualatex"
+          ],
           "default": "auto",
           "markdownDescription": "Motor de LaTeX. `auto`: el de `.folio/project.json` o `% !TEX program`, y si no, LuaLaTeX cuando el documento usa algo exclusivo de LuaTeX (babel con `bidi=basic` u `onchar=`, `luacode`…), XeLaTeX cuando carga `fontspec`/`unicode-math`/`polyglossia` y pdfLaTeX en el resto."
         },
@@ -100,12 +413,59 @@
           "default": "",
           "description": "Carpeta con los ejecutables de TeX (pdflatex, biber…). Vacío: se buscan en PATH, MiKTeX y TeX Live."
         },
-        "folio.compileOnSave": { "type": "boolean", "default": true, "description": "Compilar al guardar un archivo .tex, .bib o .sty." },
-        "folio.shellEscape": { "type": "boolean", "default": false, "markdownDescription": "Pasar `-shell-escape` (necesario para `minted`). Permite al documento ejecutar programas: actívalo solo con documentos de confianza." },
-        "folio.pdf.openAfterCompile": { "type": "boolean", "default": true, "description": "Abrir el visor PDF al lado tras compilar con éxito." },
-        "folio.pdf.invertInDarkTheme": { "type": "boolean", "default": false, "description": "Invertir los colores del PDF con un tema oscuro." },
-        "folio.lint.enabled": { "type": "boolean", "default": true, "description": "Revisión en vivo (entornos sin cerrar, $ sueltos, comandos matemáticos fuera de modo matemático…), sin compilar." },
-        "folio.checks.enabled": { "type": "boolean", "default": true, "description": "Revisión del proyecto al guardar: etiquetas repetidas, \\ref y \\cite rotos, imágenes que faltan, sin → \\sin…" }
+        "folio.compileOnSave": {
+          "type": "boolean",
+          "default": true,
+          "description": "Compilar al guardar un archivo .tex, .bib o .sty."
+        },
+        "folio.compileOnType": {
+          "type": "boolean",
+          "default": false,
+          "description": "Compilar automáticamente mientras escribes (como «Auto» en la app): guarda el archivo tras 1,5 s sin escribir y compila. También se activa desde la barra de estado."
+        },
+        "folio.shellEscape": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "Pasar `-shell-escape` (necesario para `minted`). Permite al documento ejecutar programas: actívalo solo con documentos de confianza."
+        },
+        "folio.pdf.openAfterCompile": {
+          "type": "boolean",
+          "default": true,
+          "description": "Abrir el visor PDF al lado tras compilar con éxito."
+        },
+        "folio.pdf.invertInDarkTheme": {
+          "type": "boolean",
+          "default": false,
+          "description": "Invertir los colores del PDF con un tema oscuro."
+        },
+        "folio.lint.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Revisión en vivo (entornos sin cerrar, $ sueltos, comandos matemáticos fuera de modo matemático…), sin compilar."
+        },
+        "folio.checks.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Revisión del proyecto al guardar: etiquetas repetidas, \\ref y \\cite rotos, imágenes que faltan, sin → \\sin…"
+        }
+      }
+    },
+    "submenus": [
+      {
+        "id": "folio.format",
+        "label": "Formato LaTeX",
+        "icon": "$(text-size)"
+      }
+    ],
+    "configurationDefaults": {
+      "[latex]": {
+        "editor.wordWrap": "on"
+      },
+      "[tex]": {
+        "editor.wordWrap": "on"
+      },
+      "[bibtex]": {
+        "editor.wordWrap": "on"
       }
     }
   },

@@ -8,6 +8,7 @@ import {
   type CompletionResult,
 } from "@codemirror/autocomplete";
 import type { EditorView } from "@codemirror/view";
+import { CMDS, ENVS, PACKAGES, SYMBOLS } from "./latexdata";
 
 /**
  * El editor cierra las llaves solo (\begin{|}). La sugerencia debe sustituir también esa
@@ -29,128 +30,6 @@ export type ProjectIndex = {
   citations: () => { key: string; info: string }[];
   files: () => string[];
 };
-
-const CMDS: [string, string?, string?][] = [
-  // [nombre, plantilla de snippet, descripción]
-  ["section", "section{${}}", "Sección"],
-  ["subsection", "subsection{${}}", "Subsección"],
-  ["subsubsection", "subsubsection{${}}", "Subsubsección"],
-  ["chapter", "chapter{${}}", "Capítulo"],
-  ["part", "part{${}}"],
-  ["paragraph", "paragraph{${}}"],
-  ["section*", "section*{${}}"],
-  ["subsection*", "subsection*{${}}"],
-  ["chapter*", "chapter*{${}}"],
-  ["textbf", "textbf{${}}", "Negrita"],
-  ["textit", "textit{${}}", "Cursiva"],
-  ["emph", "emph{${}}", "Énfasis"],
-  ["underline", "underline{${}}", "Subrayado"],
-  ["texttt", "texttt{${}}", "Monoespaciado"],
-  ["textsc", "textsc{${}}", "Versalitas"],
-  ["textcolor", "textcolor{${color}}{${}}"],
-  ["footnote", "footnote{${}}", "Nota al pie"],
-  ["label", "label{${}}", "Etiqueta"],
-  ["ref", "ref{${}}", "Referencia"],
-  ["eqref", "eqref{${}}"],
-  ["pageref", "pageref{${}}"],
-  ["autoref", "autoref{${}}"],
-  ["cref", "cref{${}}"],
-  ["cite", "cite{${}}", "Cita"],
-  ["citep", "citep{${}}"],
-  ["citet", "citet{${}}"],
-  ["parencite", "parencite{${}}"],
-  ["textcite", "textcite{${}}"],
-  ["autocite", "autocite{${}}"],
-  ["url", "url{${}}"],
-  ["href", "href{${url}}{${texto}}"],
-  ["includegraphics", "includegraphics[width=${0.8}\\linewidth]{${}}", "Imagen"],
-  ["input", "input{${}}"],
-  ["include", "include{${}}"],
-  ["usepackage", "usepackage{${}}"],
-  ["documentclass", "documentclass{${article}}"],
-  ["title", "title{${}}"],
-  ["author", "author{${}}"],
-  ["date", "date{${\\today}}"],
-  ["maketitle"],
-  ["tableofcontents"],
-  ["listoffigures"],
-  ["listoftables"],
-  ["newpage"],
-  ["clearpage"],
-  ["noindent"],
-  ["centering"],
-  ["item"],
-  ["caption", "caption{${}}"],
-  ["frac", "frac{${}}{${}}", "Fracción"],
-  ["dfrac", "dfrac{${}}{${}}"],
-  ["sqrt", "sqrt{${}}"],
-  ["sum", "sum_{${i=1}}^{${n}}"],
-  ["prod", "prod_{${i=1}}^{${n}}"],
-  ["int", "int_{${a}}^{${b}}"],
-  ["lim", "lim_{${x \\to \\infty}}"],
-  ["left(", "left( ${} \\right)"],
-  ["left[", "left[ ${} \\right]"],
-  ["mathbb", "mathbb{${}}"],
-  ["mathcal", "mathcal{${}}"],
-  ["mathrm", "mathrm{${}}"],
-  ["mathbf", "mathbf{${}}"],
-  ["text", "text{${}}"],
-  ["hat", "hat{${}}"],
-  ["bar", "bar{${}}"],
-  ["vec", "vec{${}}"],
-  ["dot", "dot{${}}"],
-  ["overline", "overline{${}}"],
-  ["binom", "binom{${n}}{${k}}"],
-  ["newcommand", "newcommand{\\${nombre}}[${1}]{${}}"],
-  ["renewcommand", "renewcommand{\\${nombre}}{${}}"],
-  ["hspace", "hspace{${1em}}"],
-  ["vspace", "vspace{${1em}}"],
-  ["bibliography", "bibliography{${}}"],
-  ["bibliographystyle", "bibliographystyle{${plain}}"],
-  ["addbibresource", "addbibresource{${}}"],
-  ["printbibliography"],
-];
-
-const SYMBOLS =
-  "alpha beta gamma delta epsilon varepsilon zeta eta theta vartheta iota kappa lambda mu nu xi pi varpi rho sigma tau upsilon phi varphi chi psi omega Gamma Delta Theta Lambda Xi Pi Sigma Phi Psi Omega infty partial nabla cdot cdots ldots vdots ddots times div pm mp leq geq neq approx equiv sim propto subset subseteq supset in notin cup cap forall exists neg wedge vee to rightarrow leftarrow Rightarrow Leftarrow iff mapsto quad qquad today LaTeX TeX hline toprule midrule bottomrule".split(
-    " ",
-  );
-
-const ENVS: [string, string?][] = [
-  ["itemize", "\t\\item ${}"],
-  ["enumerate", "\t\\item ${}"],
-  ["description", "\t\\item[${}] "],
-  ["equation", "\t${}"],
-  ["equation*", "\t${}"],
-  ["align", "\t${} &= \\\\"],
-  ["align*", "\t${} &= \\\\"],
-  ["gather", "\t${}"],
-  ["figure", "\t\\centering\n\t\\includegraphics[width=0.8\\linewidth]{${}}\n\t\\caption{${}}\n\t\\label{fig:${}}"],
-  ["table", "\t\\centering\n\t\\begin{tabular}{${c c}}\n\t\t${}\n\t\\end{tabular}\n\t\\caption{${}}\n\t\\label{tab:${}}"],
-  ["tabular", "\t${}"],
-  ["center", "\t${}"],
-  ["abstract", "\t${}"],
-  ["quote", "\t${}"],
-  ["verbatim", "${}"],
-  ["minipage", "\t${}"],
-  ["theorem", "\t${}"],
-  ["lemma", "\t${}"],
-  ["proof", "\t${}"],
-  ["definition", "\t${}"],
-  ["cases", "\t${} & ${} \\\\"],
-  ["matrix", "\t${}"],
-  ["pmatrix", "\t${}"],
-  ["bmatrix", "\t${}"],
-  ["frame", "\t\\frametitle{${}}\n\t${}"],
-  ["tikzpicture", "\t${}"],
-  ["lstlisting", "${}"],
-  ["document", "${}"],
-];
-
-const PACKAGES =
-  "amsmath amssymb amsthm mathtools graphicx xcolor hyperref geometry babel inputenc fontenc lmodern fontspec booktabs array tabularx longtable multirow caption subcaption float wrapfig tikz pgfplots listings minted siunitx biblatex natbib cleveref enumitem fancyhdr titlesec setspace parskip microtype csquotes url xspace todonotes lipsum blindtext appendix tocloft glossaries makeidx imakeidx physics bm cancel algorithm2e algorithmic algpseudocode tcolorbox mdframed etoolbox ifthen calc".split(
-    " ",
-  );
 
 const cmdOptions: Completion[] = [
   ...CMDS.map(([n, tpl, detail]) =>

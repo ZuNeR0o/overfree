@@ -7,7 +7,9 @@ import { CancelledError, cleanBuild, compile, findTexBin } from "./compile";
 import { FolioDiagnostics } from "./diagnostics";
 import { PdfPanel } from "./pdfPanel";
 import { isInside, listProjectFiles, resolveProject, type EngineSetting, type TexProject } from "./texproject";
-import { addReferenceByDoi, pasteTable, registerDrop } from "./tools";
+import { wordCount } from "../../src/outline";
+import { registerEditing } from "./editing";
+import { addReferenceByDoi, pasteTable, projectTexts, registerDrop } from "./tools";
 
 const isLatex = (doc: vscode.TextDocument) => doc.languageId === "latex" || doc.languageId === "tex" || /\.(tex|ltx)$/i.test(doc.fileName);
 const cfg = (uri?: vscode.Uri) => vscode.workspace.getConfiguration("folio", uri);
@@ -31,7 +33,13 @@ export function activate(ctx: vscode.ExtensionContext) {
   status.command = "folio.compile";
   status.text = "$(file-pdf) Overfree";
   status.tooltip = "Compilar con Overfree (Ctrl+Alt+B)";
-  ctx.subscriptions.push(output, diags, pdf, status);
+  // como la app: motor (clic para cambiarlo), compilación automática y palabras
+  const engineItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 9);
+  engineItem.command = "folio.selectEngine";
+  const autoItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 8);
+  autoItem.command = "folio.toggleAutoCompile";
+  const wordsItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
+  ctx.subscriptions.push(output, diags, pdf, status, engineItem, autoItem, wordsItem);
 
   let lastProject: TexProject | null = null;
   let running: { ctrl: AbortController; done: Promise<void> } | null = null;
@@ -53,6 +61,27 @@ export function activate(ctx: vscode.ExtensionContext) {
     if (p) lastProject = p;
     return p ?? lastProject;
   }
+
+  const ENGINE_NAMES: Record<string, string> = { pdflatex: "pdfLaTeX", xelatex: "XeLaTeX", lualatex: "LuaLaTeX" };
+  async function refreshStatus(doc = vscode.window.activeTextEditor?.document) {
+    if (!doc || !isLatex(doc)) return;
+    const p = await projectFor(doc);
+    const setting = cfg(doc.uri).get<EngineSetting>("engine", "auto");
+    engineItem.text = `$(symbol-misc) ${p ? ENGINE_NAMES[p.engine] : "LaTeX"}${setting === "auto" ? " (auto)" : ""}`;
+    engineItem.tooltip = "Motor de compilación. Clic: cambiarlo";
+    const on = cfg(doc.uri).get<boolean>("compileOnType", false);
+    autoItem.text = `${on ? "$(check)" : "$(circle-large-outline)"} Auto`;
+    autoItem.tooltip = on ? "Compilación automática al escribir: activada. Clic: desactivar" : "Compilación automática al escribir: desactivada. Clic: activar";
+    engineItem.show();
+    autoItem.show();
+    if (p) {
+      const files = await projectTexts(p, /\.tex$/i);
+      wordsItem.text = `${wordCount(files, p.main).toLocaleString("es")} palabras`;
+      wordsItem.tooltip = `Palabras del documento (${p.main} y sus \\input), sin fórmulas ni comandos`;
+      wordsItem.show();
+    }
+  }
+  const refreshSoon = debounce(1000, (doc?: vscode.TextDocument) => void refreshStatus(doc));
 
   const setCompiling = (on: boolean) => void vscode.commands.executeCommand("setContext", "folio.compiling", on);
 
@@ -92,6 +121,7 @@ export function activate(ctx: vscode.ExtensionContext) {
       output.appendLine(r.log);
       const problems = parseLog(r.log, await listProjectFiles(project.root), project.main);
       diags.setLog(project, problems);
+      void refreshStatus();
       const errors = problems.filter((p) => p.level === "error").length;
       const secs = ((Date.now() - started) / 1000).toFixed(1);
       if (r.success && r.pdfPath) {
@@ -145,6 +175,10 @@ export function activate(ctx: vscode.ExtensionContext) {
     if (p) await diags.checkProject(p);
   });
   const compileSoon = debounce(300, (doc: vscode.TextDocument) => void runCompile(true, doc));
+  // compilación automática al escribir (el «Auto» de la app): guarda tras una pausa y el guardado compila
+  const saveSoon = debounce(1500, (doc: vscode.TextDocument) => {
+    if (!doc.isClosed && doc.isDirty && cfg(doc.uri).get<boolean>("compileOnType", false)) void doc.save();
+  });
 
   const watchDoc = (doc: vscode.TextDocument) => {
     if (!isLatex(doc)) return;
@@ -154,20 +188,29 @@ export function activate(ctx: vscode.ExtensionContext) {
 
   ctx.subscriptions.push(
     vscode.workspace.onDidOpenTextDocument(watchDoc),
-    vscode.workspace.onDidChangeTextDocument((e) => watchDoc(e.document)),
+    vscode.workspace.onDidChangeTextDocument((e) => {
+      watchDoc(e.document);
+      if (e.contentChanges.length && isLatex(e.document) && e.document.uri.scheme === "file") {
+        saveSoon(e.document.uri.toString(), e.document);
+        refreshSoon("status", e.document);
+      }
+    }),
     vscode.workspace.onDidCloseTextDocument((d) => diags.lint.delete(d.uri)),
     vscode.workspace.onDidSaveTextDocument((doc) => {
       if (!/\.(tex|ltx|bib|sty|cls)$/i.test(doc.fileName)) return;
       check("project", doc);
-      if (cfg(doc.uri).get<boolean>("compileOnSave", true)) compileSoon("compile", doc);
+      const c = cfg(doc.uri);
+      if (c.get<boolean>("compileOnSave", true) || c.get<boolean>("compileOnType", false)) compileSoon("compile", doc);
     }),
     vscode.window.onDidChangeActiveTextEditor((ed) => {
       if (ed && isLatex(ed.document)) {
         status.show();
+        void refreshStatus(ed.document);
         check("project", ed.document);
       }
     }),
     vscode.workspace.onDidChangeConfiguration((e) => {
+      if (e.affectsConfiguration("folio.engine") || e.affectsConfiguration("folio.compileOnType")) void refreshStatus();
       if (e.affectsConfiguration("folio.lint.enabled") && !cfg().get<boolean>("lint.enabled", true)) diags.lint.clear();
       if (e.affectsConfiguration("folio.checks.enabled") && !cfg().get<boolean>("checks.enabled", true)) diags.checks.clear();
     }),
@@ -176,6 +219,7 @@ export function activate(ctx: vscode.ExtensionContext) {
   const active = vscode.window.activeTextEditor?.document;
   if (active && isLatex(active)) {
     status.show();
+    void refreshStatus(active);
     check("project", active);
   }
 
@@ -185,6 +229,30 @@ export function activate(ctx: vscode.ExtensionContext) {
   abortRunning = () => running?.ctrl.abort();
   command("folio.cancel", () => running?.ctrl.abort());
   command("folio.showLog", () => output.show());
+  registerEditing(ctx, (doc) => projectFor(doc));
+  // donde se guarda el ajuste: en la carpeta abierta si la hay (cada proyecto el suyo)
+  const target = () => (vscode.workspace.workspaceFolders?.length ? vscode.ConfigurationTarget.Workspace : vscode.ConfigurationTarget.Global);
+  command("folio.selectEngine", async () => {
+    const current = cfg().get<EngineSetting>("engine", "auto");
+    const pick = await vscode.window.showQuickPick(
+      [
+        { label: "Automático", value: "auto", description: "Según el preámbulo (fontspec, babel con bidi=basic…)" },
+        { label: "pdfLaTeX", value: "pdflatex" },
+        { label: "XeLaTeX", value: "xelatex" },
+        { label: "LuaLaTeX", value: "lualatex" },
+      ].map((o) => ({ ...o, picked: o.value === current, detail: o.value === current ? "Actual" : undefined })),
+      { placeHolder: "Motor de compilación" },
+    );
+    if (!pick) return;
+    await cfg().update("engine", pick.value, target());
+    lastProject = null; // el motor resuelto cambia
+    await refreshStatus();
+  });
+  command("folio.toggleAutoCompile", async () => {
+    const on = !cfg().get<boolean>("compileOnType", false);
+    await cfg().update("compileOnType", on, target());
+    vscode.window.setStatusBarMessage(`Overfree: compilación automática ${on ? "activada" : "desactivada"}.`, 3000);
+  });
   command("folio.showPdf", async () => {
     const p = await projectFor();
     if (!p) return void vscode.window.showWarningMessage("Overfree: abre un archivo .tex del proyecto.");
@@ -224,6 +292,9 @@ export function activate(ctx: vscode.ExtensionContext) {
     ["Ver PDF", "open-preview", "folio.showPdf"],
     ["Ir al PDF (SyncTeX)", "go-to-file", "folio.syncForward"],
     ["Revisar el proyecto", "checklist", "folio.checkProject"],
+    ["Formato: estilo del párrafo", "symbol-text", "folio.format.heading"],
+    ["Elegir motor de compilación", "symbol-misc", "folio.selectEngine"],
+    ["Compilación automática al escribir", "sync", "folio.toggleAutoCompile"],
     ["Pegar como tabla LaTeX", "table", "folio.pasteTable"],
     ["Añadir referencia por DOI", "book", "folio.addReferenceByDoi"],
     ["Ver registro de compilación", "output", "folio.showLog"],

@@ -1,5 +1,14 @@
 # Cambios
 
+## 0.1.6
+
+- **Auto**: compilación automática al escribir (botón en la barra de estado o `folio.compileOnType`).
+- **Motor en la barra de estado**, con clic para elegir Automático, pdfLaTeX, XeLaTeX o LuaLaTeX.
+- **Formato** como en la app: botón *Formato LaTeX* en la barra del editor y en el menú contextual; `Ctrl+B` / `Ctrl+I` en LaTeX.
+- **Autocompletado**: comandos, entornos, `\ref` con las etiquetas del proyecto, `\cite` con los `.bib`, archivos y paquetes.
+- **Esquema** de secciones (vista Outline, migas de pan, `Ctrl+Shift+O`) y **conteo de palabras**.
+- Ajuste de línea (`editor.wordWrap`) activado por defecto en LaTeX.
+
 ## 0.1.5
 
 - El visor PDF se veía en blanco en Antigravity (y en VS Code anteriores a ~1.14x): pdf.js usaba funciones de JavaScript que su navegador no tiene. Ahora se usa la versión compatible de pdf.js.
