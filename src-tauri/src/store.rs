@@ -405,7 +405,7 @@ impl Store {
             json!({
                 "name": dir.file_name().map(|s| s.to_string_lossy().to_string()).unwrap_or_else(|| "Proyecto".into()),
                 "main": guess_main(&dir),
-                "engine": "pdflatex",
+                "engine": "auto",
                 "folders": [],
                 "created": now_ms(),
             })

@@ -7,6 +7,7 @@
 
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
+import { engineFromSource } from "../../src/engine";
 
 export type Engine = "pdflatex" | "xelatex" | "lualatex";
 export type EngineSetting = Engine | "auto";
@@ -71,13 +72,7 @@ export const asEngine = (v: unknown): Engine | null => {
   return (ENGINES as string[]).includes(s) ? (s as Engine) : null;
 };
 
-/** Motor que pide el propio documento: % !TEX program, o paquetes que solo van con XeLaTeX/LuaLaTeX. */
-export function engineFromSource(text: string): Engine | null {
-  const magic = /^\s*%\s*!TEX\s+(?:TS-)?program\s*=\s*(\w+)/im.exec(text.slice(0, 4000))?.[1];
-  if (asEngine(magic)) return asEngine(magic);
-  if (/\\usepackage(\[[^\]]*\])?\{[^}]*\b(fontspec|unicode-math|polyglossia)\b/.test(stripComments(text))) return "xelatex";
-  return null;
-}
+export { engineFromSource };
 
 /** Igual que Overfree: el que tiene \documentclass, preferiblemente main.tex y poco profundo. */
 export async function guessMain(root: string, files: string[]): Promise<string | null> {
@@ -108,7 +103,10 @@ export async function resolveProject(file: string, opts: ResolveOptions = {}): P
   for (let dir = path.dirname(file); ; dir = path.dirname(dir)) {
     const meta = await readJson(path.join(dir, ".folio", "project.json"));
     if (meta && typeof meta.main === "string" && meta.main.endsWith(".tex")) {
-      return { root: dir, main: meta.main, engine: setting ?? asEngine(meta.engine) ?? "pdflatex", folio: true };
+      // "auto" (o un valor raro) en project.json: se detecta del principal, como hace la app
+      const engine =
+        setting ?? asEngine(meta.engine) ?? engineFromSource(await fs.readFile(path.join(dir, meta.main), "utf8").catch(() => "")) ?? "pdflatex";
+      return { root: dir, main: meta.main, engine, folio: true };
     }
     if ((ws && dir === ws) || path.dirname(dir) === dir || (ws && !isInside(dir, ws))) break;
   }

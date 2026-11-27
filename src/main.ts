@@ -21,6 +21,7 @@ import type { PdfMessage } from "./pdfwindow";
 import { tags as t } from "@lezer/highlight";
 
 import { cancelCompile, clearAuxCache, compileProject, engineReady, exportAux, importAux, onEngineProgress, warmUp, type Engine } from "./latex";
+import { resolveEngine, type EngineSetting } from "./engine";
 import { backend, desktop, isTextPath, migrateLegacy, newId, type ProjectMeta, type Snapshot, type StoredFile } from "./store";
 import { parseLog, type Problem } from "./logparse";
 import { parseSynctex, forward, inverse, type SyncData } from "./synctex";
@@ -1329,7 +1330,9 @@ async function compile(auto = false) {
   const t0 = performance.now();
   const pid = meta.id; // si cambias de proyecto mientras compila, el resultado es de este
   const pMain = meta.main;
-  const pEngine = meta.engine;
+  const mainText = findFile(pMain)?.text ?? "";
+  const rest = files.filter((f) => f.path !== pMain && f.path.endsWith(".tex")).map((f) => f.text ?? "").join("\n");
+  const pEngine = resolveEngine(meta.engine, mainText, rest);
   try {
     if (current && findFile(current)?.text !== undefined) states.set(current, view.state);
     const draft = auto && settings.draft;
@@ -1393,7 +1396,7 @@ async function compile(auto = false) {
           pdf: r.pdf,
           synctex: r.synctex,
           time: Date.now(),
-          aux: { main: meta.main, engine: meta.engine, files: exportAux(meta.id, meta.main, meta.engine) },
+          aux: { main: pMain, engine: pEngine, files: exportAux(pid, pMain, pEngine) },
         })
         .catch(() => undefined);
     const secs = ((performance.now() - t0) / 1000).toFixed(1);
@@ -1453,7 +1456,7 @@ window.addEventListener("keydown", (e) => {
 
 const engineSelect = $<HTMLSelectElement>("engine");
 engineSelect.onchange = () => {
-  meta.engine = engineSelect.value as Engine;
+  meta.engine = engineSelect.value as EngineSetting;
   touch();
 };
 
@@ -1713,7 +1716,7 @@ async function createProject(name: string, initial: StoredFile[], extra: Partial
     id: newId(),
     name,
     main: guessMain(initial),
-    engine: /\\usepackage(\[[^\]]*\])?\{fontspec\}/.test(initial.map((f) => f.text ?? "").join("")) ? "xelatex" : "pdflatex",
+    engine: "auto",
     folders: [],
     created: Date.now(),
     updated: Date.now(),

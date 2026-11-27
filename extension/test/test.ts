@@ -176,6 +176,10 @@ test("engineFromSource", () => {
   assert.equal(engineFromSource("% !TEX program = lualatex\n\\documentclass{article}"), "lualatex");
   assert.equal(engineFromSource("\\usepackage[math]{unicode-math}"), "xelatex");
   assert.equal(engineFromSource("% \\usepackage{fontspec}\n\\documentclass{article}"), null);
+  assert.equal(engineFromSource("\\usepackage[spanish, bidi=basic, provide=*]{babel}\n\\usepackage{fontspec}"), "lualatex");
+  assert.equal(engineFromSource("\\babelprovide[import, onchar=ids fonts]{english}"), "lualatex");
+  assert.equal(engineFromSource("\\documentclass{article}", "\\usepackage{fontspec}"), "xelatex", "preámbulo en otro .tex");
+  assert.equal(engineFromSource("\\usepackage{amsmath}\n\\usepackage{xcolor}"), null);
 });
 
 test("revisión en vivo: linter de Overleaf sin Worker", () => {

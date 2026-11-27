@@ -4,12 +4,13 @@
 
 import { decodeText, encodeText, type TextEncodingName } from "./encoding";
 import type { Engine } from "./latex";
+import type { EngineSetting } from "./engine";
 
 export type ProjectMeta = {
   id: string;
   name: string;
   main: string;
-  engine: Engine;
+  engine: EngineSetting;
   folders: string[]; // carpetas vacías (las demás se deducen de las rutas)
   created: number;
   updated: number;

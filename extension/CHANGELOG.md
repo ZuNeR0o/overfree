@@ -1,5 +1,10 @@
 # Cambios
 
+## 0.1.4
+
+- Motor automático más listo: los documentos con babel `bidi=basic` u `onchar=` (p. ej. `\babelprovide[import, onchar=ids fonts]`), `luacode` o paquetes `lua*` se compilan con **LuaLaTeX**. Antes iban a XeLaTeX y fallaban.
+- Los proyectos de la app Overfree con motor «Automático» (`"engine": "auto"` en `.folio/project.json`) detectan el motor en vez de usar pdfLaTeX.
+
 ## 0.1.3
 
 - Folio pasa a llamarse **Overfree**, con logo nuevo (la «O» abierta y el cubículo 246). Los comandos y ajustes (`folio.*`) no cambian: tu configuración se conserva.
