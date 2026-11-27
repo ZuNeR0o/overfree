@@ -83,6 +83,7 @@ export async function run() {
     const st = await waitFor("PDF dibujado", () => api.pdf.renderState);
     assert.equal(st.error, undefined, st.error);
     assert.ok(st.pages >= 1, `páginas: ${st.pages}`);
+    assert.ok((st.ink ?? -1) > 0.001, `la página 1 está en blanco (tinta: ${st.ink})`);
     await sleep(1500); // que termine de pintar antes de la captura
     shot("1-compilado");
   });

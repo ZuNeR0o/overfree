@@ -44,6 +44,26 @@ viewer.onChange = () => {
 };
 viewer.onDblClick = (page, x, y) => vscode.postMessage({ type: "inverse", page, x, y });
 viewer.onExternalLink = (url) => vscode.postMessage({ type: "link", url });
+let renderError = "";
+viewer.onRenderError = (page, e) => {
+  renderError = `No se pudo dibujar la página ${page}: ${e instanceof Error ? e.message : String(e)}`;
+  vscode.postMessage({ type: "error", message: renderError });
+};
+
+/** Fracción de píxeles no blancos de la página 1 (-1 si no llegó a dibujarse): detecta un PDF en blanco. */
+async function firstPageInk(): Promise<number> {
+  for (let i = 0; i < 100; i++) {
+    const c = root.querySelector<HTMLCanvasElement>('.pdf-page[data-page="1"] canvas');
+    if (c?.width) {
+      const d = c.getContext("2d")!.getImageData(0, 0, c.width, c.height).data;
+      let ink = 0;
+      for (let j = 0; j < d.length; j += 4) if (d[j + 3] > 0 && d[j] + d[j + 1] + d[j + 2] < 600) ink++;
+      return ink / (d.length / 4);
+    }
+    await new Promise((r) => setTimeout(r, 100));
+  }
+  return -1;
+}
 
 zoomSel.addEventListener("change", () => {
   const v = zoomSel.value;
@@ -112,7 +132,10 @@ async function load(data: Uint8Array) {
   root.querySelector(".empty")?.remove();
   try {
     await viewer.load(data);
-    vscode.postMessage({ type: "rendered", pages: viewer.pageCount });
+    renderError = "";
+    const ink = await firstPageInk();
+    // un error al dibujar llega antes que esto: no se tapa con «dibujado»
+    vscode.postMessage(renderError ? { type: "error", message: renderError } : { type: "rendered", pages: viewer.pageCount, ink });
   } catch (e) {
     vscode.postMessage({ type: "error", message: e instanceof Error ? e.message : String(e) });
     return;

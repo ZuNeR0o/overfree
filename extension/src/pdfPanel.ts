@@ -13,11 +13,11 @@ type FromWebview =
   | { type: "ready" }
   | { type: "inverse"; page: number; x: number; y: number }
   | { type: "link"; url: string }
-  | { type: "rendered"; pages: number }
+  | { type: "rendered"; pages: number; ink: number }
   | { type: "error"; message: string };
 
 /** Último resultado del webview: cuántas páginas dibujó o por qué falló. */
-export type RenderState = { pages: number; error?: string; at: number };
+export type RenderState = { pages: number; ink?: number; error?: string; at: number };
 
 export class PdfPanel implements vscode.Disposable {
   private panel: vscode.WebviewPanel | null = null;
@@ -106,7 +106,7 @@ export class PdfPanel implements vscode.Disposable {
   private async onMessage(m: FromWebview) {
     if (!m || typeof m !== "object") return;
     if (m.type === "ready") this.markReady?.();
-    else if (m.type === "rendered") this.renderState = { pages: Number(m.pages) || 0, at: Date.now() };
+    else if (m.type === "rendered") this.renderState = { pages: Number(m.pages) || 0, ink: Number(m.ink), at: Date.now() };
     else if (m.type === "error") this.renderState = { pages: 0, error: String(m.message), at: Date.now() };
     else if (m.type === "link") {
       if (typeof m.url !== "string" || !/^(https?:|mailto:)/i.test(m.url)) return;

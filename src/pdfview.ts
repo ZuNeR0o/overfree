@@ -27,6 +27,8 @@ export class PdfViewer {
   onChange: (() => void) | null = null;
   /** Enlace externo (URL) pulsado en el PDF. */
   onExternalLink: ((url: string) => void) | null = null;
+  /** Falló el dibujo de una página (sin esto el error se perdía y la página quedaba en blanco). */
+  onRenderError: ((page: number, error: unknown) => void) | null = null;
 
   constructor(private root: HTMLElement) {
     this.io = new IntersectionObserver(
@@ -160,7 +162,11 @@ export class PdfViewer {
     if (!p || !this.doc) return Promise.resolve();
     if (p.rendered === this.scale) return this.rendering.get(n) ?? Promise.resolve();
     p.rendered = this.scale;
-    const job = this.doRender(n, p);
+    const job = this.doRender(n, p).catch((e) => {
+      if (p.rendered === this.scale) p.rendered = 0; // se reintentará al volver a verse
+      if (this.onRenderError) this.onRenderError(n, e);
+      else console.error(`Overfree: no se pudo dibujar la página ${n}`, e);
+    });
     this.rendering.set(n, job);
     return job;
   }

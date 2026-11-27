@@ -1,5 +1,10 @@
 # Cambios
 
+## 0.1.5
+
+- El visor PDF se veía en blanco en Antigravity (y en VS Code anteriores a ~1.14x): pdf.js usaba funciones de JavaScript que su navegador no tiene. Ahora se usa la versión compatible de pdf.js.
+- Si una página no se puede dibujar, el error se muestra en vez de dejar la página en blanco.
+
 ## 0.1.4
 
 - Motor automático más listo: los documentos con babel `bidi=basic` u `onchar=` (p. ej. `\babelprovide[import, onchar=ids fonts]`), `luacode` o paquetes `lua*` se compilan con **LuaLaTeX**. Antes iban a XeLaTeX y fallaban.

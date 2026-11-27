@@ -18,7 +18,9 @@ const production = args.has("--production");
 
 mkdirSync(join(here, "dist"), { recursive: true });
 // pdf.js necesita su worker como archivo aparte; el webview lo carga desde dist/
-copyFileSync(require.resolve("pdfjs-dist/build/pdf.worker.min.mjs"), join(here, "dist", "pdf.worker.min.mjs"));
+// build «legacy» (con polyfills): la moderna usa Map.getOrInsertComputed y Math.sumPrecise, que no
+// existen en el Chromium de Antigravity ni de VS Code < 1.10x, y las páginas quedaban en blanco
+copyFileSync(require.resolve("pdfjs-dist/legacy/build/pdf.worker.min.mjs"), join(here, "dist", "pdf.worker.min.mjs"));
 copyFileSync(join(here, "webview", "pdf.css"), join(here, "dist", "webview.css"));
 // vsce exige la licencia junto al package.json
 copyFileSync(join(here, "..", "LICENSE"), join(here, "LICENSE"));
@@ -32,6 +34,14 @@ const viteUrlImports = {
       contents: "export default globalThis.__FOLIO_PDF_WORKER__ || '';",
       loader: "js",
     }));
+  },
+};
+
+/** En el webview, `import "pdfjs-dist"` apunta a la build legacy (ver arriba). */
+const pdfjsLegacy = {
+  name: "pdfjs-legacy",
+  setup(b) {
+    b.onResolve({ filter: /^pdfjs-dist$/ }, () => ({ path: require.resolve("pdfjs-dist/legacy/build/pdf.mjs") }));
   },
 };
 
@@ -60,7 +70,7 @@ const builds = [
     platform: "browser",
     format: "iife",
     target: "chrome114",
-    plugins: [viteUrlImports],
+    plugins: [viteUrlImports, pdfjsLegacy],
   },
 ];
 if (args.has("--test")) {
