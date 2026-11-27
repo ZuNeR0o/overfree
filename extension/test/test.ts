@@ -15,6 +15,7 @@ import { parseTsv, toLatexTable } from "../../src/tables";
 import { CancelledError, compile, findTexBin, validMain } from "../src/compile";
 import { engineFromSource, resolveProject } from "../src/texproject";
 import { toSnippet } from "../src/snippet";
+import { appLocations, listAppProjects } from "../src/projects";
 
 const tests: [string, () => Promise<void> | void][] = [];
 const test = (name: string, fn: () => Promise<void> | void) => tests.push([name, fn]);
@@ -187,6 +188,24 @@ test("toSnippet: plantillas de la app a snippets de VS Code", () => {
   assert.equal(toSnippet("\\textbf{${}}"), "\\\\textbf{${1}\\}");
   assert.equal(toSnippet("\\begin{${env}}\n\t${}\n\\end{${env}}"), "\\\\begin{${1:env}\\}\n\t${2}\n\\\\end{${1:env}\\}");
   assert.equal(toSnippet("\\date{${\\today}}"), "\\\\date{${1:\\\\today}\\}");
+});
+
+test("listAppProjects: registro de la app y Documentos/Folio", async () => {
+  const home = tmp();
+  const loc = appLocations({ APPDATA: path.join(home, "roaming") }, home, "win32");
+  assert.equal(loc.registry, path.join(home, "roaming", "app.folio.editor", "projects.json"));
+  const mk = (dir: string, name?: string) => {
+    mkdirSync(path.join(dir, ".folio"), { recursive: true });
+    writeFileSync(path.join(dir, ".folio", "project.json"), JSON.stringify(name ? { name, main: "main.tex" } : { main: "main.tex" }));
+  };
+  const fuera = path.join(home, "tareas", "kalman");
+  mk(fuera, "Tarea Kalman");
+  mk(path.join(home, "Documents", "Folio", "RP2"));
+  mkdirSync(path.join(home, "Documents", "Folio", "suelta"), { recursive: true }); // sin .folio: no cuenta
+  mkdirSync(path.dirname(loc.registry), { recursive: true });
+  writeFileSync(loc.registry, JSON.stringify([{ id: "a", dir: fuera }, { id: "b", dir: path.join(home, "Documents", "Folio", "RP2") }, { id: "c", dir: path.join(home, "borrado") }]));
+  const list = await listAppProjects(loc);
+  assert.deepEqual(list.map((p) => p.name), ["RP2", "Tarea Kalman"]);
 });
 
 test("revisión en vivo: linter de Overleaf sin Worker", () => {

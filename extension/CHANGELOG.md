@@ -1,5 +1,11 @@
 # Cambios
 
+## 0.1.7
+
+- **Abrir proyecto…**: lista los proyectos de la app Overfree (y los de Documentos/Folio) y abre el elegido como carpeta; también «Abrir otra carpeta…». En la vista *Acciones* y en su barra.
+- Los botones del editor (Compilar, Ver PDF, Formato LaTeX) desaparecían al hacer clic en el PDF: ahora dependen del archivo del editor, no del foco.
+- Si el editor aún no conoce un ajuste nuevo tras actualizar el .vsix, se ofrece *Recargar ventana* en vez de un error.
+
 ## 0.1.6
 
 - **Auto**: compilación automática al escribir (botón en la barra de estado o `folio.compileOnType`).

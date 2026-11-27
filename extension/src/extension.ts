@@ -9,6 +9,7 @@ import { PdfPanel } from "./pdfPanel";
 import { isInside, listProjectFiles, resolveProject, type EngineSetting, type TexProject } from "./texproject";
 import { wordCount } from "../../src/outline";
 import { registerEditing } from "./editing";
+import { listAppProjects } from "./projects";
 import { addReferenceByDoi, pasteTable, projectTexts, registerDrop } from "./tools";
 
 const isLatex = (doc: vscode.TextDocument) => doc.languageId === "latex" || doc.languageId === "tex" || /\.(tex|ltx)$/i.test(doc.fileName);
@@ -232,6 +233,20 @@ export function activate(ctx: vscode.ExtensionContext) {
   registerEditing(ctx, (doc) => projectFor(doc));
   // donde se guarda el ajuste: en la carpeta abierta si la hay (cada proyecto el suyo)
   const target = () => (vscode.workspace.workspaceFolders?.length ? vscode.ConfigurationTarget.Workspace : vscode.ConfigurationTarget.Global);
+  /** Tras instalar una versión nueva del .vsix, el editor no conoce sus ajustes hasta recargar la ventana. */
+  async function setSetting(key: string, value: unknown) {
+    try {
+      await cfg().update(key, value, target());
+      return true;
+    } catch (e) {
+      const choice = await vscode.window.showWarningMessage(
+        `Overfree: no se pudo guardar el ajuste folio.${key}. Si acabas de actualizar la extensión, recarga la ventana. (${e instanceof Error ? e.message : e})`,
+        "Recargar ventana",
+      );
+      if (choice) void vscode.commands.executeCommand("workbench.action.reloadWindow");
+      return false;
+    }
+  }
   command("folio.selectEngine", async () => {
     const current = cfg().get<EngineSetting>("engine", "auto");
     const pick = await vscode.window.showQuickPick(
@@ -244,13 +259,31 @@ export function activate(ctx: vscode.ExtensionContext) {
       { placeHolder: "Motor de compilación" },
     );
     if (!pick) return;
-    await cfg().update("engine", pick.value, target());
+    if (!(await setSetting("engine", pick.value))) return;
     lastProject = null; // el motor resuelto cambia
     await refreshStatus();
   });
+  command("folio.openProject", async () => {
+    const projects = await listAppProjects();
+    const current = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+    type Item = vscode.QuickPickItem & { dir?: string };
+    const items: Item[] = [
+      { label: "$(folder-opened) Abrir otra carpeta…", alwaysShow: true },
+      ...(projects.length ? [{ label: "Proyectos de la app Overfree", kind: vscode.QuickPickItemKind.Separator }] : []),
+      ...projects.map((p) => ({ label: p.name, description: p.dir === current ? "(abierto)" : p.dir, dir: p.dir })),
+    ];
+    const pick = await vscode.window.showQuickPick(items, { placeHolder: "Proyecto o carpeta para abrir", matchOnDescription: true });
+    if (!pick) return;
+    let uri = pick.dir ? vscode.Uri.file(pick.dir) : undefined;
+    if (!uri) {
+      const sel = await vscode.window.showOpenDialog({ canSelectFolders: true, canSelectFiles: false, openLabel: "Abrir proyecto" });
+      uri = sel?.[0];
+    }
+    if (uri) await vscode.commands.executeCommand("vscode.openFolder", uri, { forceNewWindow: false });
+  });
   command("folio.toggleAutoCompile", async () => {
     const on = !cfg().get<boolean>("compileOnType", false);
-    await cfg().update("compileOnType", on, target());
+    if (!(await setSetting("compileOnType", on))) return;
     vscode.window.setStatusBarMessage(`Overfree: compilación automática ${on ? "activada" : "desactivada"}.`, 3000);
   });
   command("folio.showPdf", async () => {
@@ -288,6 +321,7 @@ export function activate(ctx: vscode.ExtensionContext) {
 
   // Barra lateral (icono de Overfree en la barra de actividad): accesos directos a los comandos
   const actions: [string, string, string, unknown[]?][] = [
+    ["Abrir proyecto…", "folder-opened", "folio.openProject"],
     ["Compilar", "play", "folio.compile"],
     ["Ver PDF", "open-preview", "folio.showPdf"],
     ["Ir al PDF (SyncTeX)", "go-to-file", "folio.syncForward"],

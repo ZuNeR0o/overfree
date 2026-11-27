@@ -216,7 +216,7 @@ export async function run() {
 
   await step("barra de estado: motor y ajuste de línea", async () => {
     const cmds = await vscode.commands.getCommands(true);
-    for (const c of ["folio.selectEngine", "folio.toggleAutoCompile", "folio.format.heading"]) assert.ok(cmds.includes(c), c);
+    for (const c of ["folio.selectEngine", "folio.toggleAutoCompile", "folio.format.heading", "folio.openProject"]) assert.ok(cmds.includes(c), c);
     const wrapCfg = vscode.workspace.getConfiguration("editor", { languageId: "latex" }).get("wordWrap");
     assert.equal(wrapCfg, "on", "editor.wordWrap en LaTeX");
   });

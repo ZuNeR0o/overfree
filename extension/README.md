@@ -5,6 +5,7 @@ Las herramientas de [Overfree](https://github.com/ZuNeR0o/overfree) dentro de tu
 
 ## Funciones
 
+- **Abrir proyecto…**: los proyectos de la app Overfree (y de Documentos/Folio) a un clic, u otra carpeta.
 - **Icono de Overfree en la barra de actividad** (a la izquierda, como PlatformIO): abre la vista
   *Acciones* con todos los comandos a un clic.
 - **Compilar** (`Ctrl+Alt+B`, botón ▶ o al guardar) con el TeX del sistema (MiKTeX o TeX Live):

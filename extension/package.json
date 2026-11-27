@@ -2,7 +2,7 @@
   "name": "folio-latex",
   "displayName": "Overfree LaTeX",
   "description": "Lo mejor de Overfree dentro de VS Code y Antigravity: compilación con el TeX del sistema, errores explicados en español, visor PDF con SyncTeX, revisión en vivo, revisión del proyecto, tablas desde Excel/CSV y referencias por DOI.",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "publisher": "zuner0o",
   "license": "AGPL-3.0-only",
   "icon": "media/icon.png",
@@ -177,6 +177,12 @@
         "title": "Activar/desactivar compilación automática al escribir",
         "category": "Overfree",
         "icon": "$(sync)"
+      },
+      {
+        "command": "folio.openProject",
+        "title": "Abrir proyecto…",
+        "category": "Overfree",
+        "icon": "$(folder-opened)"
       }
     ],
     "keybindings": [
@@ -239,44 +245,49 @@
           "command": "folio.cancel",
           "when": "view == folio.actions && folio.compiling",
           "group": "navigation@1"
+        },
+        {
+          "command": "folio.openProject",
+          "when": "view == folio.actions",
+          "group": "navigation@0"
         }
       ],
       "editor/title": [
         {
           "command": "folio.compile",
-          "when": "(editorLangId == latex || editorLangId == tex) && !folio.compiling",
+          "when": "(resourceLangId == latex || resourceLangId == tex) && !folio.compiling",
           "group": "navigation@1"
         },
         {
           "command": "folio.cancel",
-          "when": "(editorLangId == latex || editorLangId == tex) && folio.compiling",
+          "when": "(resourceLangId == latex || resourceLangId == tex) && folio.compiling",
           "group": "navigation@1"
         },
         {
           "command": "folio.showPdf",
-          "when": "editorLangId == latex || editorLangId == tex",
+          "when": "resourceLangId == latex || resourceLangId == tex",
           "group": "navigation@2"
         },
         {
           "submenu": "folio.format",
-          "when": "editorLangId == latex || editorLangId == tex",
+          "when": "resourceLangId == latex || resourceLangId == tex",
           "group": "navigation@0"
         }
       ],
       "editor/context": [
         {
           "command": "folio.pasteTable",
-          "when": "editorLangId == latex || editorLangId == tex",
+          "when": "resourceLangId == latex || resourceLangId == tex",
           "group": "9_cutcopypaste@9"
         },
         {
           "command": "folio.addReferenceByDoi",
-          "when": "editorLangId == latex || editorLangId == tex",
+          "when": "resourceLangId == latex || resourceLangId == tex",
           "group": "folio@1"
         },
         {
           "submenu": "folio.format",
-          "when": "editorLangId == latex || editorLangId == tex",
+          "when": "resourceLangId == latex || resourceLangId == tex",
           "group": "1_modification@0"
         }
       ],
