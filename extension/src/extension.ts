@@ -4,7 +4,8 @@ import * as path from "node:path";
 import * as vscode from "vscode";
 import { parseLog } from "../../src/logparse";
 import { CancelledError, cleanBuild, compile, findTexBin } from "./compile";
-import { FolioDiagnostics } from "./diagnostics";
+import { FolioDiagnostics, quickFixProvider } from "./diagnostics";
+import { registerNavigation } from "./navigation";
 import { PdfPanel } from "./pdfPanel";
 import { isInside, listProjectFiles, resolveProject, type EngineSetting, type TexProject } from "./texproject";
 import { wordCount } from "../../src/outline";
@@ -232,6 +233,12 @@ export function activate(ctx: vscode.ExtensionContext) {
   command("folio.cancel", () => running?.ctrl.abort());
   command("folio.showLog", () => output.show());
   registerEditing(ctx, (doc) => projectFor(doc));
+  const nav = registerNavigation(ctx, (doc) => projectFor(doc));
+  ctx.subscriptions.push(
+    vscode.languages.registerCodeActionsProvider([{ language: "latex" }, { language: "tex" }], quickFixProvider, {
+      providedCodeActionKinds: [vscode.CodeActionKind.QuickFix],
+    }),
+  );
   // donde se guarda el ajuste: en la carpeta abierta si la hay (cada proyecto el suyo)
   const target = () => (vscode.workspace.workspaceFolders?.length ? vscode.ConfigurationTarget.Workspace : vscode.ConfigurationTarget.Global);
   /** Tras instalar una versión nueva del .vsix, el editor no conoce sus ajustes hasta recargar la ventana. */
@@ -357,6 +364,7 @@ export function activate(ctx: vscode.ExtensionContext) {
     pdf,
     diagnostics: diags,
     isCompiling: () => running !== null,
+    outline: nav,
   };
 }
 

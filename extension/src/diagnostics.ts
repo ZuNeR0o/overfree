@@ -12,6 +12,7 @@ import type { Problem } from "../../src/logparse";
 import { Parse } from "../../src/overleaf/linter/latex-linter.worker";
 import { errorsToDiagnostics } from "../../src/overleaf/linter/lint-core";
 import type { StoredFile } from "../../src/store";
+import { endOf, quickFix } from "./texargs";
 import { listProjectFiles, type TexProject } from "./texproject";
 
 const SEVERITY: Record<Problem["level"], vscode.DiagnosticSeverity> = {
@@ -26,11 +27,18 @@ const lineRange = (line: number | null) => {
 };
 
 /** Agrupa problemas con archivo/línea por archivo del disco. Los que no tienen archivo van al principal. */
-function toDiagnostics(project: TexProject, problems: Problem[], source: string) {
+function toDiagnostics(project: TexProject, problems: Problem[], source: string, texts?: Map<string, string>) {
   const byFile = new Map<string, vscode.Diagnostic[]>();
   for (const p of problems) {
     const abs = path.resolve(project.root, p.file ?? project.main);
-    const d = new vscode.Diagnostic(lineRange(p.file ? p.line : null), p.message, SEVERITY[p.level]);
+    let range = lineRange(p.file ? p.line : null);
+    // con columna y largo se marca el texto exacto (y se puede corregir con Ctrl+.)
+    const text = p.file ? texts?.get(p.file) : undefined;
+    if (text !== undefined && p.line && p.col !== undefined && p.length) {
+      const end = endOf(text, p.line - 1, p.col, p.length);
+      range = new vscode.Range(p.line - 1, p.col, end.line, end.col);
+    }
+    const d = new vscode.Diagnostic(range, p.message, SEVERITY[p.level]);
     d.source = p.source ?? source;
     byFile.set(abs, [...(byFile.get(abs) ?? []), d]);
   }
@@ -81,7 +89,8 @@ export class FolioDiagnostics implements vscode.Disposable {
       files.push({ path: rel, text });
     }
     this.checks.clear();
-    for (const [file, ds] of toDiagnostics(project, checkProject(files), "Proyecto")) this.checks.set(vscode.Uri.file(file), ds);
+    const texts = new Map(files.filter((f) => f.text !== undefined).map((f) => [f.path, f.text!]));
+    for (const [file, ds] of toDiagnostics(project, checkProject(files), "Proyecto", texts)) this.checks.set(vscode.Uri.file(file), ds);
   }
 
   dispose() {
@@ -90,3 +99,23 @@ export class FolioDiagnostics implements vscode.Disposable {
     this.checks.dispose();
   }
 }
+
+/** Ctrl+. sobre un aviso de la revisión del proyecto: sin → \sin, $$…$$ → \[…\], "…" → ``…''. */
+export const quickFixProvider: vscode.CodeActionProvider = {
+  provideCodeActions(doc, _range, ctx) {
+    const actions: vscode.CodeAction[] = [];
+    for (const d of ctx.diagnostics) {
+      if (d.source !== "Proyecto") continue;
+      // el texto pudo cambiar desde la revisión: la corrección sale de lo que hay ahora
+      const fix = quickFix(doc.getText(d.range));
+      if (!fix) continue;
+      const a = new vscode.CodeAction(fix.title, vscode.CodeActionKind.QuickFix);
+      a.edit = new vscode.WorkspaceEdit();
+      a.edit.replace(doc.uri, d.range, fix.text);
+      a.diagnostics = [d];
+      a.isPreferred = true;
+      actions.push(a);
+    }
+    return actions;
+  },
+};

@@ -23,6 +23,10 @@ Las herramientas de [Overfree](https://github.com/ZuNeR0o/overfree) dentro de tu
 - **Autocompletado**: comandos y símbolos, `\begin{…}` con su `\end`, `\ref` con las etiquetas del
   proyecto, `\cite` con las entradas de los `.bib`, archivos en `\includegraphics`/`\input` y paquetes.
 - **Esquema** de secciones en la vista *Outline*, las migas de pan y `Ctrl+Shift+O`.
+- **Ir a la definición** (`F12` / `Ctrl+Clic`): de `\ref` a su `\label` y de `\cite` a su entrada del `.bib`, en cualquier archivo del proyecto. `\input`, `\include`, `\includegraphics` y `\bibliography` son enlaces.
+- **Al pasar el ratón**: autor, título y año de una cita; el texto alrededor del `\label` de una referencia; la miniatura de una imagen.
+- **Correcciones rápidas** (`Ctrl+.`) en los avisos de la revisión: `sin` → `\sin`, `$$…$$` → `\[…\]`, comillas rectas → ``` ``…'' ```.
+- **Esquema del proyecto** en la barra lateral de Overfree, con los capítulos de los `\input`/`\include`.
 - **Conteo de palabras** del documento en la barra de estado.
 - **Ajuste de línea** activado por defecto en LaTeX (`editor.wordWrap`), como en la app.
 - **Errores explicados en español** en la lista de Problemas, en su archivo y línea

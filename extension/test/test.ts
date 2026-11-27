@@ -17,6 +17,7 @@ import { engineFromSource, resolveProject } from "../src/texproject";
 import { toSnippet } from "../src/snippet";
 import { appLocations, listAppProjects } from "../src/projects";
 import { newer, pickUpdate } from "../src/releases";
+import { argAt, endOf, findBibEntry, findLabel, quickFix } from "../src/texargs";
 
 const tests: [string, () => Promise<void> | void][] = [];
 const test = (name: string, fn: () => Promise<void> | void) => tests.push([name, fn]);
@@ -221,6 +222,26 @@ test("actualizaciones: elige la release de la extensión más nueva y segura", (
   ];
   assert.equal(pickUpdate(releases, "0.1.7")?.version, "0.1.8");
   assert.equal(pickUpdate(releases, "0.1.8"), null);
+});
+
+test("texargs: correcciones, argumento bajo el cursor, \\label y .bib", () => {
+  assert.equal(quickFix("sin")?.text, "\\sin");
+  assert.equal(quickFix("$$x^2$$")?.text, "\\[x^2\\]");
+  assert.equal(quickFix('"hola"')?.text, "``hola''");
+  assert.equal(quickFix("Hola"), null);
+  assert.deepEqual(endOf("ab\ncd$$\nx\n$$", 1, 2, 7), { line: 3, col: 2 });
+
+  const line = "Ver \\ref{fig:a} y \\cite[p.~3]{knuth, lamport}.";
+  assert.deepEqual(argAt(line, line.indexOf("fig:a") + 2), { cmd: "ref", key: "fig:a", start: 9, end: 14 });
+  const c = line.indexOf("lamport");
+  assert.deepEqual(argAt(line, c + 1), { cmd: "cite", key: "lamport", start: c, end: c + 7 });
+  assert.equal(argAt(line, 1), null);
+
+  const tex = [{ path: "a.tex", text: "% \\label{fig:a}\nx" }, { path: "b.tex", text: "y\n\\label{fig:a}" }];
+  assert.equal(findLabel(tex, "fig:a")?.path, "b.tex", "ignora el \\label comentado");
+  const bib = "@book{knuth,\n  author = {Donald Knuth},\n  title = {The {TeX}book},\n  year = 1984\n}\n@misc{x, title={X}}";
+  const e = findBibEntry([{ path: "r.bib", text: bib }], "knuth");
+  assert.deepEqual([e?.line, e?.author, e?.title, e?.year], [0, "Donald Knuth", "The TeXbook", "1984"]);
 });
 
 test("revisión en vivo: linter de Overleaf sin Worker", () => {

@@ -49,6 +49,9 @@ function mathRanges(t: string): [number, number][] {
   return out.sort((a, b) => a[0] - b[0]);
 }
 
+/** Línea (desde 1) y columna (desde 0) de una posición, más el largo del texto señalado. */
+const at = (text: string, idx: number, length: number) => ({ line: lineAt(text, idx), col: idx - text.lastIndexOf("\n", idx - 1) - 1, length });
+
 const inRanges = (rs: [number, number][], i: number) => rs.some(([a, b]) => i >= a && i < b);
 
 export function checkProject(files: StoredFile[]): Problem[] {
@@ -126,12 +129,12 @@ export function checkProject(files: StoredFile[]): Problem[] {
     const plainInMath = f.t.replace(/\\(text\w*|mathrm|operatorname\*?|mbox|textrm|label|ref|eqref)\s*\{[^{}]*\}/g, (m) => " ".repeat(m.length));
     for (const m of plainInMath.matchAll(/(?<![\\A-Za-z])(sin|cos|tan|cot|sec|csc|sinh|cosh|tanh|arcsin|arccos|arctan|log|ln|exp|lim|max|min|sup|inf|det|deg|gcd)(?![A-Za-z])/g))
       if (inRanges(math, m.index!))
-        add("fn", { level: "info", message: `Escribe \\${m[1]} en vez de ${m[1]}: sin la barra se ve en cursiva, como un producto de variables.`, file: f.path, line: lineAt(f.t, m.index!) });
-    const dd = /(?<!\\)\$\$/.exec(f.t); // con un aviso por archivo basta
-    if (dd) add("dd", { level: "info", message: "$$ … $$ es obsoleto en LaTeX: usa \\[ … \\] (espaciado correcto).", file: f.path, line: lineAt(f.t, dd.index) });
+        add("fn", { level: "info", message: `Escribe \\${m[1]} en vez de ${m[1]}: sin la barra se ve en cursiva, como un producto de variables.`, file: f.path, ...at(f.t, m.index!, m[1].length) });
+    const dd = /(?<!\\)\$\$[\s\S]*?(?<!\\)\$\$/.exec(f.t); // con un aviso por archivo basta
+    if (dd) add("dd", { level: "info", message: "$$ … $$ es obsoleto en LaTeX: usa \\[ … \\] (espaciado correcto).", file: f.path, ...at(f.t, dd.index, dd[0].length) });
     for (const m of f.t.matchAll(/"([^"\n]{1,120})"/g))
       if (!inRanges(math, m.index!))
-        add("q", { level: "info", message: `Comillas rectas en "${m[1].slice(0, 30)}": usa \`\`…'' o \\enquote{…} (con csquotes).`, file: f.path, line: lineAt(f.t, m.index!) });
+        add("q", { level: "info", message: `Comillas rectas en "${m[1].slice(0, 30)}": usa \`\`…'' o \\enquote{…} (con csquotes).`, file: f.path, ...at(f.t, m.index!, m[0].length) });
   }
 
   return out;

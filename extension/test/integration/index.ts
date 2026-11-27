@@ -10,7 +10,7 @@ import * as vscode from "vscode";
 import { inverse, parseSynctex } from "../../../src/synctex";
 import type { PdfPanel } from "../../src/pdfPanel";
 
-type Api = { pdf: PdfPanel; isCompiling: () => boolean };
+type Api = { pdf: PdfPanel; isCompiling: () => boolean; outline: { rebuildOutline: () => Promise<void>; outlineRoots: () => { label: string; children: { label: string }[] }[] } };
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 async function waitFor<T>(what: string, fn: () => T | undefined | null | false, ms = 30000): Promise<T> {
@@ -234,6 +234,44 @@ export async function run() {
     } finally {
       await c.update("compileOnType", undefined, vscode.ConfigurationTarget.Workspace);
     }
+  });
+
+  await step("F12 en \\ref y \\cite, hover de la cita y enlaces de \\input", async () => {
+    const doc = await vscode.workspace.openTextDocument(main);
+    await vscode.window.showTextDocument(doc, { viewColumn: vscode.ViewColumn.One });
+    const line = doc.lineAt(6).text;
+    const at = (s: string) => new vscode.Position(6, line.indexOf(s) + 2);
+    const ref = await vscode.commands.executeCommand<vscode.Location[]>("vscode.executeDefinitionProvider", main, at("sec:intro"));
+    assert.equal(ref?.[0]?.range.start.line, 4, "\\label en la línea 5");
+    const cite = await vscode.commands.executeCommand<vscode.Location[]>("vscode.executeDefinitionProvider", main, at("einstein"));
+    assert.ok(cite?.[0]?.uri.fsPath.endsWith("refs.bib"), "entrada en refs.bib");
+    const hovers = await vscode.commands.executeCommand<vscode.Hover[]>("vscode.executeHoverProvider", main, at("einstein"));
+    const text = hovers.flatMap((h) => h.contents.map((c) => (typeof c === "string" ? c : c.value))).join("\n");
+    assert.match(text, /Albert(&nbsp;|\s)Einstein/, text); // appendText escapa los espacios
+    const links = await vscode.commands.executeCommand<vscode.DocumentLink[]>("vscode.executeLinkProvider", main);
+    const targets = links.map((l) => l.target?.fsPath ?? "");
+    assert.ok(targets.some((t) => t.endsWith("capitulo.tex")) && targets.some((t) => t.endsWith("refs.bib")), targets.join(", "));
+  });
+
+  await step("esquema del proyecto: sigue los \\input", async () => {
+    await api.outline.rebuildOutline();
+    const roots = api.outline.outlineRoots();
+    const intro = roots.find((r) => r.label === "Introducción");
+    assert.ok(intro?.children.some((c) => c.label === "Capítulo"), JSON.stringify(roots));
+  });
+
+  await step("corrección rápida: sin → \\sin", async () => {
+    const ed = await vscode.window.showTextDocument(cap, { viewColumn: vscode.ViewColumn.One });
+    await ed.edit((e) => e.insert(new vscode.Position(ed.document.lineCount, 0), "\n$sin x$\n"));
+    await vscode.commands.executeCommand("folio.checkProject");
+    const d = await waitFor("aviso de sin", () => vscode.languages.getDiagnostics(cap).find((x) => x.source === "Proyecto" && x.message.includes("\\sin")), 10000);
+    assert.equal(ed.document.getText(d.range), "sin", "el aviso marca solo la palabra");
+    const actions = await vscode.commands.executeCommand<vscode.CodeAction[]>("vscode.executeCodeActionProvider", cap, d.range);
+    const fix = actions.find((a) => a.title.includes("\\sin"));
+    assert.ok(fix?.edit, `acciones: ${actions.map((a) => a.title).join(", ")}`);
+    await vscode.workspace.applyEdit(fix.edit);
+    assert.match(ed.document.getText(), /\$\\sin x\$/);
+    await vscode.commands.executeCommand("workbench.action.files.revert");
   });
 
   await step("compilar al guardar y cancelar", async () => {

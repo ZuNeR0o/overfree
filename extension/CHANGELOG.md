@@ -1,5 +1,12 @@
 # Cambios
 
+## 0.1.9
+
+- **Ir a la definición** (`F12` / `Ctrl+Clic`): de `\ref` a su `\label` y de `\cite` a su entrada del `.bib`. `\input`, `\include`, `\includegraphics` y `\bibliography` son enlaces.
+- **Al pasar el ratón**: datos de la cita, contexto del `\label` y miniatura de la imagen.
+- **Correcciones rápidas** (`Ctrl+.`): `sin` → `\sin`, `$$…$$` → `\[…\]`, comillas rectas → ``` ``…'' ```. Los avisos marcan solo el texto afectado.
+- **Esquema del proyecto** en la barra lateral de Overfree, siguiendo los `\input`/`\include`.
+
 ## 0.1.8
 
 - **Se actualiza sola** desde GitHub Releases: una vez al día busca una versión nueva, pregunta, descarga el `.vsix` (solo de las releases de este repositorio), lo instala y ofrece recargar la ventana. Ajuste `folio.checkForUpdates` y comando *Overfree: Buscar actualizaciones de la extensión*.

@@ -10,6 +10,9 @@ export type Problem = {
   context?: string;
   /** Quién lo detectó (por defecto, el registro de LaTeX). */
   source?: string;
+  /** Columna (desde 0) y largo del texto señalado, si se conoce: permite marcarlo y corregirlo. */
+  col?: number;
+  length?: number;
 };
 
 /** TeX corta las líneas a 79 caracteres; las une de nuevo. */
