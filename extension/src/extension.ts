@@ -6,6 +6,7 @@ import { parseLog } from "../../src/logparse";
 import { CancelledError, cleanBuild, compile, findTexBin } from "./compile";
 import { FolioDiagnostics, quickFixProvider } from "./diagnostics";
 import { registerNavigation } from "./navigation";
+import { ToolsView } from "./toolsView";
 import { PdfPanel } from "./pdfPanel";
 import { isInside, listProjectFiles, resolveProject, type EngineSetting, type TexProject } from "./texproject";
 import { wordCount } from "../../src/outline";
@@ -42,7 +43,8 @@ export function activate(ctx: vscode.ExtensionContext) {
   const autoItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 8);
   autoItem.command = "folio.toggleAutoCompile";
   const wordsItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
-  ctx.subscriptions.push(output, diags, pdf, status, engineItem, autoItem, wordsItem);
+  const tools = new ToolsView();
+  ctx.subscriptions.push(output, diags, pdf, status, engineItem, autoItem, wordsItem, vscode.window.registerWebviewViewProvider("folio.tools", tools));
 
   let lastProject: TexProject | null = null;
   let running: { ctrl: AbortController; done: Promise<void> } | null = null;
@@ -77,6 +79,7 @@ export function activate(ctx: vscode.ExtensionContext) {
     autoItem.tooltip = on ? "Compilación automática al escribir: activada. Clic: desactivar" : "Compilación automática al escribir: desactivada. Clic: activar";
     engineItem.show();
     autoItem.show();
+    tools.setState(`${p ? ENGINE_NAMES[p.engine] : "LaTeX"}${setting === "auto" ? " (auto)" : ""}`, on);
     if (p) {
       const files = await projectTexts(p, /\.tex$/i);
       wordsItem.text = `${wordCount(files, p.main).toLocaleString("es")} palabras`;
@@ -291,7 +294,7 @@ export function activate(ctx: vscode.ExtensionContext) {
   });
   command("folio.checkForUpdates", () => checkForUpdate(ctx, true));
   // solo con la extensión instalada (no al desarrollarla ni en las pruebas)
-  if (ctx.extensionMode === vscode.ExtensionMode.Production) setTimeout(() => void checkForUpdate(ctx), 10_000);
+  if (ctx.extensionMode === vscode.ExtensionMode.Production) setTimeout(() => void checkForUpdate(ctx), 5_000);
   command("folio.toggleAutoCompile", async () => {
     const on = !cfg().get<boolean>("compileOnType", false);
     if (!(await setSetting("compileOnType", on))) return;

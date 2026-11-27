@@ -5,7 +5,8 @@ import * as fs from "node:fs/promises";
 import * as vscode from "vscode";
 import { REPO, pickUpdate, type Release } from "./releases";
 
-const DAY = 24 * 60 * 60 * 1000;
+// al abrir el editor, pero no más de una vez por hora (GitHub admite 60 consultas/hora sin cuenta)
+const MIN_GAP = 60 * 60 * 1000;
 const LAST_CHECK = "folio.update.lastCheck";
 const SKIPPED = "folio.update.skipped";
 
@@ -13,7 +14,7 @@ const SKIPPED = "folio.update.skipped";
 export async function checkForUpdate(ctx: vscode.ExtensionContext, manual = false) {
   if (!manual) {
     if (!vscode.workspace.getConfiguration("folio").get<boolean>("checkForUpdates", true)) return;
-    if (Date.now() - ctx.globalState.get<number>(LAST_CHECK, 0) < DAY) return;
+    if (Date.now() - ctx.globalState.get<number>(LAST_CHECK, 0) < MIN_GAP) return;
   }
   await ctx.globalState.update(LAST_CHECK, Date.now());
 

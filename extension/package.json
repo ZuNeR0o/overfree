@@ -2,7 +2,7 @@
   "name": "folio-latex",
   "displayName": "Overfree LaTeX",
   "description": "Lo mejor de Overfree dentro de VS Code y Antigravity: compilación con el TeX del sistema, errores explicados en español, visor PDF con SyncTeX, revisión en vivo, revisión del proyecto, tablas desde Excel/CSV y referencias por DOI.",
-  "version": "0.1.9",
+  "version": "0.1.10",
   "publisher": "zuner0o",
   "license": "AGPL-3.0-only",
   "icon": "media/icon.png",
@@ -65,12 +65,14 @@
       {
         "command": "folio.syncForward",
         "title": "Ir al PDF (SyncTeX)",
-        "category": "Overfree"
+        "category": "Overfree",
+        "icon": "$(go-to-file)"
       },
       {
         "command": "folio.checkProject",
         "title": "Revisar el proyecto",
-        "category": "Overfree"
+        "category": "Overfree",
+        "icon": "$(checklist)"
       },
       {
         "command": "folio.pasteTable",
@@ -107,12 +109,14 @@
       {
         "command": "folio.format.underline",
         "title": "Subrayado",
-        "category": "Overfree"
+        "category": "Overfree",
+        "icon": "$(text-size)"
       },
       {
         "command": "folio.format.emph",
         "title": "Énfasis",
-        "category": "Overfree"
+        "category": "Overfree",
+        "icon": "$(sparkle)"
       },
       {
         "command": "folio.format.heading",
@@ -129,7 +133,8 @@
       {
         "command": "folio.format.equation",
         "title": "Ecuación (equation)",
-        "category": "Overfree"
+        "category": "Overfree",
+        "icon": "$(symbol-structure)"
       },
       {
         "command": "folio.format.itemize",
@@ -152,7 +157,8 @@
       {
         "command": "folio.format.footnote",
         "title": "Nota al pie",
-        "category": "Overfree"
+        "category": "Overfree",
+        "icon": "$(note)"
       },
       {
         "command": "folio.format.figure",
@@ -233,14 +239,21 @@
     "views": {
       "folio": [
         {
-          "id": "folio.actions",
-          "name": "Acciones",
+          "type": "webview",
+          "id": "folio.tools",
+          "name": "Herramientas",
           "icon": "media/overfree.svg"
         },
         {
           "id": "folio.outline",
           "name": "Esquema",
           "icon": "media/overfree.svg"
+        },
+        {
+          "id": "folio.actions",
+          "name": "Acciones",
+          "icon": "media/overfree.svg",
+          "visibility": "collapsed"
         }
       ]
     },
@@ -279,9 +292,64 @@
           "group": "navigation@2"
         },
         {
+          "command": "folio.syncForward",
+          "when": "resourceLangId == latex || resourceLangId == tex",
+          "group": "navigation@3"
+        },
+        {
+          "command": "folio.format.heading",
+          "when": "resourceLangId == latex || resourceLangId == tex",
+          "group": "navigation@4"
+        },
+        {
+          "command": "folio.format.bold",
+          "when": "resourceLangId == latex || resourceLangId == tex",
+          "group": "navigation@5"
+        },
+        {
+          "command": "folio.format.italic",
+          "when": "resourceLangId == latex || resourceLangId == tex",
+          "group": "navigation@6"
+        },
+        {
+          "command": "folio.format.inlineMath",
+          "when": "resourceLangId == latex || resourceLangId == tex",
+          "group": "navigation@7"
+        },
+        {
+          "command": "folio.format.equation",
+          "when": "resourceLangId == latex || resourceLangId == tex",
+          "group": "navigation@8"
+        },
+        {
+          "command": "folio.format.itemize",
+          "when": "resourceLangId == latex || resourceLangId == tex",
+          "group": "navigation@9"
+        },
+        {
+          "command": "folio.format.enumerate",
+          "when": "resourceLangId == latex || resourceLangId == tex",
+          "group": "navigation@10"
+        },
+        {
+          "command": "folio.format.link",
+          "when": "resourceLangId == latex || resourceLangId == tex",
+          "group": "navigation@11"
+        },
+        {
+          "command": "folio.format.figure",
+          "when": "resourceLangId == latex || resourceLangId == tex",
+          "group": "navigation@12"
+        },
+        {
+          "command": "folio.format.table",
+          "when": "resourceLangId == latex || resourceLangId == tex",
+          "group": "navigation@13"
+        },
+        {
           "submenu": "folio.format",
           "when": "resourceLangId == latex || resourceLangId == tex",
-          "group": "navigation@0"
+          "group": "navigation@14"
         }
       ],
       "editor/context": [
@@ -472,15 +540,15 @@
         "folio.checkForUpdates": {
           "type": "boolean",
           "default": true,
-          "description": "Buscar una vez al día una versión nueva de la extensión en GitHub Releases y ofrecer instalarla."
+          "description": "Al abrir el editor (como mucho una vez por hora), buscar una versión nueva de la extensión en GitHub Releases y ofrecer instalarla."
         }
       }
     },
     "submenus": [
       {
         "id": "folio.format",
-        "label": "Formato LaTeX",
-        "icon": "$(text-size)"
+        "label": "Más formato LaTeX",
+        "icon": "$(ellipsis)"
       }
     ],
     "configurationDefaults": {

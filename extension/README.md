@@ -5,8 +5,12 @@ Las herramientas de [Overfree](https://github.com/ZuNeR0o/overfree) dentro de tu
 
 ## Funciones
 
+![Interfaz de la extensión](media/captura-interfaz.png)
+
+- **Panel Herramientas** en la barra lateral de Overfree: los botones de la barra de la app (compilar, formato, listas, fórmulas, figura, tabla, enlace, cita por DOI, motor y Auto), rotulados y siempre visibles.
+
 - **Abrir proyecto…**: los proyectos de la app Overfree (y de Documentos/Folio) a un clic, u otra carpeta.
-- **Se actualiza sola** desde GitHub Releases: una vez al día busca una versión nueva y ofrece instalarla (ajuste `folio.checkForUpdates`; comando *Overfree: Buscar actualizaciones de la extensión*).
+- **Se actualiza sola** desde GitHub Releases: al abrir el editor (como mucho una vez por hora) busca una versión nueva y ofrece instalarla (ajuste `folio.checkForUpdates`; comando *Overfree: Buscar actualizaciones de la extensión*).
 - **Icono de Overfree en la barra de actividad** (a la izquierda, como PlatformIO): abre la vista
   *Acciones* con todos los comandos a un clic.
 - **Compilar** (`Ctrl+Alt+B`, botón ▶ o al guardar) con el TeX del sistema (MiKTeX o TeX Live):

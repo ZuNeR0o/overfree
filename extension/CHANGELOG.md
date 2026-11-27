@@ -1,5 +1,11 @@
 # Cambios
 
+## 0.1.10
+
+- **Panel Herramientas** en la barra lateral de Overfree, como la barra de la app: compilar, ver PDF, ir al PDF, revisar, motor y Auto, formato de texto, listas, fórmulas, figura, tabla, tabla desde Excel, enlace y cita por DOI. Siempre visible, sin depender del ancho del editor.
+- **Barra del editor ampliada**: Ir al PDF, estilo del párrafo, negrita, cursiva, fórmula, ecuación, listas, enlace, figura y tabla como botones; el resto en *Más formato LaTeX*.
+- Las actualizaciones se buscan **al abrir el editor** (como mucho una vez por hora) en vez de una vez al día.
+
 ## 0.1.9
 
 - **Ir a la definición** (`F12` / `Ctrl+Clic`): de `\ref` a su `\label` y de `\cite` a su entrada del `.bib`. `\input`, `\include`, `\includegraphics` y `\bibliography` son enlaces.

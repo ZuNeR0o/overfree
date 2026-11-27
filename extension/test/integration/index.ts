@@ -289,6 +289,19 @@ export async function run() {
     shot("4-final");
   });
 
+  await step("captura de la interfaz", async () => {
+    await vscode.commands.executeCommand("workbench.action.closeAuxiliaryBar");
+    await vscode.commands.executeCommand("workbench.action.closePanel");
+    await vscode.commands.executeCommand("notifications.clearAll");
+    await vscode.commands.executeCommand("workbench.view.extension.folio");
+    await vscode.commands.executeCommand("folio.tools.focus"); // el panel Herramientas existe y se abre
+    await vscode.window.showTextDocument(main, { viewColumn: vscode.ViewColumn.One, selection: new vscode.Range(6, 0, 6, 0) });
+    await vscode.commands.executeCommand("folio.showPdf");
+    await vscode.window.showTextDocument(main, { viewColumn: vscode.ViewColumn.One });
+    await sleep(4000);
+    shot("5-interfaz");
+  });
+
   const failed = results.filter((r) => !r.ok);
   console.log(failed.length ? `\n${failed.length} de ${results.length} fallidas` : `\n${results.length} pruebas de integración correctas`);
   if (failed.length) throw new Error(failed.map((f) => `${f.name}: ${f.detail}`).join("\n"));
